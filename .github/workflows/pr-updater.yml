@@ -19,7 +19,7 @@ jobs:
           script: |
             const branchName = context.payload.pull_request.head.ref;
             const prNumber = context.payload.pull_request.number;
-            const match = branchName.match(/(bp-\d+)/i);
+            const match = branchName.match(/(age-\d+)/i);
 
             if (match) {
               const issueId = match[1].toUpperCase();
