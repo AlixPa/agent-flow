@@ -1,7 +1,6 @@
 services:
   mysql:
     image: mysql:8.0
-    container_name: databasator
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
@@ -16,12 +15,12 @@ services:
     build:
       context: .
       dockerfile: docker/local/Dockerfile.backend
-    container_name: migrator
     environment:
       MYSQL_HOST: mysql
+      MYSQL_PORT: ${MYSQL_PORT}
     depends_on:
       - mysql
-    entrypoint: ["/bin/bash", "shell/migrate-db.sh"]
+    entrypoint: ["/bin/bash", "/shell/migrate-db.sh"]
 
   backend:
     build:
@@ -29,7 +28,6 @@ services:
       dockerfile: docker/local/Dockerfile.backend
     environment:
       MYSQL_HOST: mysql
-    container_name: backend
     depends_on:
       - migrator
     ports:

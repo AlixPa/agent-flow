@@ -23,16 +23,45 @@ Agent workflows are intended to be created and updated automatically via code ge
 
 ### Simple run
 
-To simply run the backend, use:
+Before running the application, you need to have Docker Desktop installed:
+
+1. Download Docker Desktop from [https://www.docker.com/products/docker-desktop/](https://www.docker.com/products/docker-desktop/)
+2. Install Docker Desktop following the installation instructions for your operating system
+3. Start Docker Desktop and ensure it's running
+
+---
+
+Copy paste `.env-example` to `.env` and fill it with your own environment requirements (or leave default).
+
+---
+
+Then to run the backend, use the following command:
 
 ```bash
-docker-compose up -d backend
+docker compose up -d --build backend
 ```
 
-Backend will be accessible at `BACKEND_PORT` (8080 by default)
+---
+
+To stop the application, use the following command:
+
+```bash
+docker compose stop mysql backend
+docker compose rm -f mysql backend migrator
+```
+
+---
+
+The backend will be accessible at:
+
+- API: http://127.0.0.1:8080/
+- API Documentation: http://localhost:8080/docs
+- Alternative API Documentation: http://localhost:8080/redoc
+
+Note that 8080 is default port but you can change `BACKEND_PORT` in the .env file.
 MySQL will be accessible at `MYSQL_PORT_LOCAL` (13306 by default)
 
-### To manually run
+### Manual run
 
 Python version: Python 3.13.3
 
@@ -46,8 +75,6 @@ gunicorn main:app --workers 1 --k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8
 3. Access the backend at `127.0.0.1:8080/`
 
 ### To contribute
-
-Make sure you are in backend/ folder
 
 Create your local environment for this repo
 
@@ -64,7 +91,7 @@ source .venv/bin/activate
 Install requirements
 
 ```bash
-python -m pip install -r requirements.txt
+python -m pip install -r backend/requirements.txt
 ```
 
 ### Formating
