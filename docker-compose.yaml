@@ -1,0 +1,45 @@
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "${MYSQL_PORT_LOCAL}:${MYSQL_PORT}"
+    volumes:
+      - ./.db:/var/lib/mysql
+
+  migrator:
+    build:
+      context: .
+      dockerfile: docker/local/Dockerfile.backend
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: ${MYSQL_PORT}
+    depends_on:
+      - mysql
+    entrypoint: ["/bin/bash", "/shell/migrate-db.sh"]
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/local/Dockerfile.backend
+    environment:
+      MYSQL_HOST: mysql
+    depends_on:
+      - migrator
+    ports:
+      - "${BACKEND_PORT}:${BACKEND_PORT}"
+    entrypoint:
+      [
+        "gunicorn",
+        "main:app",
+        "-k",
+        "uvicorn.workers.UvicornWorker",
+        "--workers",
+        "1",
+        "--bind",
+        "0.0.0.0:${BACKEND_PORT}",
+      ]
