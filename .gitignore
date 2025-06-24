@@ -1,8 +1,8 @@
-PoC/
 local_test*
 data/
 .DS_Store
 .db/
+.agent_flows/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
