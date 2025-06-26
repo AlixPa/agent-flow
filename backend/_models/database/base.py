@@ -1,5 +1,8 @@
+from datetime import datetime
+
+from sqlalchemy import DATETIME, VARCHAR, text
 from sqlalchemy.inspection import inspect
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
 class Base(DeclarativeBase):
@@ -8,6 +11,21 @@ class Base(DeclarativeBase):
 
 class SqlBaseModel(Base):
     __abstract__ = True
+
+    id: Mapped[str] = mapped_column(
+        VARCHAR(255),
+        primary_key=True,
+    )
+    createdAt: Mapped[datetime] = mapped_column(
+        DATETIME(),
+        nullable=False,
+        server_default=text("CURRENT_TIMESTAMP"),
+    )
+    updatedAt: Mapped[datetime] = mapped_column(
+        DATETIME(),
+        nullable=False,
+        server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"),
+    )
 
     def to_dict(
         self,
