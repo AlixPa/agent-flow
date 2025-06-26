@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from _utils import DateTimeFormat
+from _config import DateTimeFormat
 from fastapi import APIRouter
 
 router = APIRouter(prefix="/health")
