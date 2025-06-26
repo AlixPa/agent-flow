@@ -8,10 +8,6 @@ from .node import Node
 class Edge(SqlBaseModel):
     __tablename__ = "edge"
 
-    id: Mapped[str] = mapped_column(
-        VARCHAR(255),
-        primary_key=True,
-    )
     name: Mapped[str] = mapped_column(
         VARCHAR(255),
         nullable=False,

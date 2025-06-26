@@ -8,10 +8,6 @@ from .base import SqlBaseModel
 class AgentNode(SqlBaseModel):
     __tablename__ = "agent_node"
 
-    id: Mapped[str] = mapped_column(
-        VARCHAR(255),
-        primary_key=True,
-    )
     name: Mapped[str] = mapped_column(
         VARCHAR(255),
         nullable=False,

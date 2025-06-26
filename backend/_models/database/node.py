@@ -8,8 +8,10 @@ from .base import SqlBaseModel
 class Node(SqlBaseModel):
     __tablename__ = "node"
 
-    id: Mapped[str] = mapped_column(VARCHAR(255), primary_key=True)
-    type: Mapped[str] = mapped_column(VARCHAR(255), nullable=False)
+    type: Mapped[str] = mapped_column(
+        VARCHAR(255),
+        nullable=False,
+    )
     agent_node_id: Mapped[str] = mapped_column(
         VARCHAR(255),
         ForeignKey(AgentNode.id),
