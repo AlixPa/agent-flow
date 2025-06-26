@@ -2,8 +2,7 @@ import json
 import logging
 import sys
 
-from _config import ENV, ServiceEnv
-from _utils import DateTimeFormat
+from _config import ENV, DateTimeFormat, ServiceEnv
 
 
 class JsonFormatter(logging.Formatter):
