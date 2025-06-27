@@ -11,10 +11,12 @@ class Node(SqlBaseModel):
     type: Mapped[str] = mapped_column(
         VARCHAR(255),
         nullable=False,
+        index=True,
     )
     agent_node_id: Mapped[str] = mapped_column(
         VARCHAR(255),
         ForeignKey(AgentNode.id),
         nullable=True,
         server_default=None,
+        index=True,
     )

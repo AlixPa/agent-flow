@@ -16,6 +16,7 @@ class AgentNode(SqlBaseModel):
         VARCHAR(255),
         ForeignKey(AgentBase.id),
         nullable=False,
+        index=True,
     )
     prompt: Mapped[str] = mapped_column(
         TEXT(),
