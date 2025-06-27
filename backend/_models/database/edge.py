@@ -1,7 +1,8 @@
-from sqlalchemy import VARCHAR, ForeignKey
+from sqlalchemy import VARCHAR, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import SqlBaseModel
+from .graph import Graph
 from .node import Node
 
 
@@ -20,3 +21,10 @@ class Edge(SqlBaseModel):
         nullable=False,
         index=True,
     )
+    graphId: Mapped[str] = mapped_column(
+        VARCHAR(255),
+        ForeignKey(Graph.id),
+        nullable=False,
+        index=True,
+    )
+    UniqueConstraint("fromNodeId", "toNodeId")

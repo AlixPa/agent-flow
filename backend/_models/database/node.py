@@ -3,6 +3,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from .agent_node import AgentNode
 from .base import SqlBaseModel
+from .graph import Graph
 
 
 class Node(SqlBaseModel):
@@ -13,10 +14,15 @@ class Node(SqlBaseModel):
         nullable=False,
         index=True,
     )
-    agent_node_id: Mapped[str] = mapped_column(
+    agentNodeId: Mapped[str] = mapped_column(
         VARCHAR(255),
         ForeignKey(AgentNode.id),
         nullable=True,
         server_default=None,
+    )
+    graphId: Mapped[str] = mapped_column(
+        VARCHAR(255),
+        ForeignKey(Graph.id),
+        nullable=False,
         index=True,
     )
