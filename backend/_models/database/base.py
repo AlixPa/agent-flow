@@ -20,11 +20,13 @@ class SqlBaseModel(Base):
         DATETIME(),
         nullable=False,
         server_default=text("CURRENT_TIMESTAMP"),
+        index=True,
     )
     updatedAt: Mapped[datetime] = mapped_column(
         DATETIME(),
         nullable=False,
         server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"),
+        index=True,
     )
 
     def to_dict(

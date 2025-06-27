@@ -8,17 +8,15 @@ from .node import Node
 class Edge(SqlBaseModel):
     __tablename__ = "edge"
 
-    name: Mapped[str] = mapped_column(
-        VARCHAR(255),
-        nullable=False,
-    )
     fromNodeId: Mapped[str] = mapped_column(
         VARCHAR(255),
         ForeignKey(Node.id),
         nullable=False,
+        index=True,
     )
     toNodeId: Mapped[str] = mapped_column(
         VARCHAR(255),
         ForeignKey(Node.id),
         nullable=False,
+        index=True,
     )
