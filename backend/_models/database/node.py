@@ -32,3 +32,8 @@ class Node(SqlBaseModel):
         nullable=False,
         server_default="0",
     )
+
+    def __init__(self, **kwargs):
+        kwargs["agentNodeId"] = kwargs.get("agentNodeId", None)
+        kwargs["isBaseEntryPoint"] = bool(kwargs.get("isBaseEntryPoint", False))
+        super().__init__(**kwargs)
