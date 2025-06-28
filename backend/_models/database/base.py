@@ -1,7 +1,6 @@
 from datetime import datetime
 from uuid import uuid4
 
-from _config import DateTimeFormat
 from sqlalchemy import DATETIME, VARCHAR, text
 from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column

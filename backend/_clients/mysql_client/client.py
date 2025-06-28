@@ -495,7 +495,7 @@ class MysqlClient:
     def insert_one(
         self,
         table_name: str,
-        object_to_insert: dict[str, object],
+        to_insert: dict[str, object],
         silent=False,
         or_ignore=False,
     ):
@@ -505,7 +505,7 @@ class MysqlClient:
         ----------
         table_name : str
             Name of the table to insert into
-        object_to_insert : dict
+        to_insert : dict
             Dictionary of column names and their corresponding values
         silent : bool, optional
             If True, suppress logging of the query execution, by default False
@@ -521,23 +521,23 @@ class MysqlClient:
         MySqlWrongQueryError
             If query is wrong
         """
-        if "createdAt" in object_to_insert:
-            del object_to_insert["createdAt"]
-        if "updatedAt" in object_to_insert:
-            del object_to_insert["updatedAt"]
+        if "createdAt" in to_insert:
+            del to_insert["createdAt"]
+        if "updatedAt" in to_insert:
+            del to_insert["updatedAt"]
 
-        if not object_to_insert:
+        if not to_insert:
             self.logger.warning("could not insert one, no object_to_insert given")
             raise MySqlNoValueInsertionError()
 
         query_parts = [f"INSERT {"IGNORE" if or_ignore else ""} INTO {table_name}"]
-        query_parts.append(f"({", ".join([col for col in object_to_insert])})")
-        query_parts.append(f"VALUES ({", ".join(["%s"] * len(object_to_insert))})")
+        query_parts.append(f"({",".join([col for col in to_insert])})")
+        query_parts.append(f"VALUES ({",".join(["%s"] * len(to_insert))})")
         query_parts.append(";")
 
         self.execute(
             query=" ".join(query_parts),
-            args=tuple(v for v in object_to_insert.values()),
+            args=tuple(v for v in to_insert.values()),
             silent=silent,
         )
         self.connection.commit()  # type: ignore
@@ -607,6 +607,10 @@ class MysqlClient:
             del update_col_col["updatedAt"]
         if "updatedAt" in update_col_value:
             del update_col_value["updatedAt"]
+        if "createdAt" in update_col_col:
+            del update_col_col["createdAt"]
+        if "createdAt" in update_col_value:
+            del update_col_value["createdAt"]
 
         if not update_col_col and not update_col_value:
             raise MySqlNoUpdateValuesError()

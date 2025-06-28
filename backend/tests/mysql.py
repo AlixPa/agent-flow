@@ -20,16 +20,14 @@ if __name__ == "__main__":
     user_test = UserTable()
     logger.info(f"Will insert {user_test.to_dict()}")
     logger.info(f"Before: {client.select(table_name=UserTable.__tablename__)}")
-    client.insert_one(
-        table_name=UserTable.__tablename__, object_to_insert=user_test.to_dict()
-    )
+    client.insert_one(table_name=UserTable.__tablename__, to_insert=user_test.to_dict())
     logger.info(f"After: {client.select(table_name=UserTable.__tablename__)}")
 
     graph_test = GraphTable(name="my_test_graph", userId=user_test.id)
     logger.info(f"Will insert {graph_test.to_dict()}")
     logger.info(f"Before: {client.select(table_name=GraphTable.__tablename__)}")
     client.insert_one(
-        table_name=GraphTable.__tablename__, object_to_insert=graph_test.to_dict()
+        table_name=GraphTable.__tablename__, to_insert=graph_test.to_dict()
     )
     logger.info(f"After: {client.select(table_name=GraphTable.__tablename__)}")
 
