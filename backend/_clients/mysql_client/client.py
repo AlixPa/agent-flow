@@ -4,7 +4,7 @@ from logging import Logger
 
 import pymysql.cursors
 from _config import MYSQL_DATABASE, MYSQL_HOST, MYSQL_PASSWORD, MYSQL_PORT, MYSQL_USER
-from _logger import base_logger
+from _logger import get_logger
 
 from .exceptions import (
     MySqlDuplicateColumnUpdateError,
@@ -13,6 +13,8 @@ from .exceptions import (
     MySqlNoValueInsertionError,
     MySqlWrongQueryError,
 )
+
+base_logger = get_logger()
 
 
 class MysqlClient:
@@ -50,8 +52,9 @@ class MysqlClient:
             raise MySqlNoConnectionError()
 
     def logging(self, cursor):
-        self.logger.debug(f"MysqlClient executed: {str(cursor._executed)}")
-        self.logger.debug(f"{cursor.rowcount=}")
+        self.logger.debug(
+            f"MysqlClient executed: {str(cursor._executed)}. {cursor.rowcount=}"
+        )
 
     def obj_to_str(self, o) -> str:
         if isinstance(o, int):

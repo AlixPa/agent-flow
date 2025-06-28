@@ -1,4 +1,4 @@
-from sqlalchemy import TEXT, VARCHAR
+from sqlalchemy import VARCHAR
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import SqlBaseModel
@@ -11,8 +11,4 @@ class AgentBase(SqlBaseModel):
         VARCHAR(255),
         nullable=False,
         unique=True,
-    )
-    basePrompt: Mapped[str] = mapped_column(
-        TEXT(),
-        nullable=False,
     )

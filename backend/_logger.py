@@ -56,6 +56,3 @@ def get_logger(name: str = "AGE_backend_logger", env: str = ENV):
         logger.addHandler(handler)
 
     return logger
-
-
-base_logger = get_logger()
