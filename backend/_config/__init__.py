@@ -8,7 +8,6 @@ sys.path.append(str(root_path))
 
 load_dotenv(override=False)
 
-from .agents import ConversationalAgentConfig
 from .env_var import (
     ENV,
     MYSQL_DATABASE,
@@ -21,7 +20,6 @@ from .formats import DateTimeFormat
 from .runtime import ServiceEnv
 
 __all__ = [
-    "ConversationalAgentConfig",
     "DateTimeFormat",
     "ENV",
     "MYSQL_DATABASE",

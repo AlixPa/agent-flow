@@ -38,3 +38,7 @@ class AgentNode(SqlBaseModel):
         index=True,
     )
     UniqueConstraint("name", "userId", "graphId")
+
+    def __init__(self, **kwargs):
+        kwargs["prompt"] = kwargs.get("prompt", None)
+        super().__init__(**kwargs)

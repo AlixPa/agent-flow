@@ -53,65 +53,71 @@ class MysqlClient:
 
     def logging(self, cursor):
         self.logger.debug(
-            f"MysqlClient executed: {str(cursor._executed)}. {cursor.rowcount=}"
+            f"MysqlClient executed: {str(cursor._executed)} {cursor.rowcount=}"
         )
-
-    def obj_to_str(self, o) -> str:
-        if isinstance(o, int):
-            return str(o)
-        return f"'{o}'"
-
-    def ls_obj_to_str(self, ls: list) -> list:
-        if not ls:
-            return ls
-        return [self.obj_to_str(e) for e in ls]
 
     def generate_cond(
         self,
         cond_null: list[str] = list(),
         cond_not_null: list[str] = list(),
         cond_in: dict[str, list] = dict(),
-        cond_eq: dict[str, object] = dict(),
-        cond_neq: dict[str, object] = dict(),
-        cond_leq: dict[str, object] = dict(),
-        cond_geq: dict[str, object] = dict(),
-        cond_l: dict[str, object] = dict(),
-        cond_g: dict[str, object] = dict(),
-    ) -> str:
-        cond = " WHERE 1 = 1 "
+        cond_equal: dict[str, object] = dict(),
+        cond_non_equal: dict[str, object] = dict(),
+        cond_less_or_eq: dict[str, object] = dict(),
+        cond_greater_or_eq: dict[str, object] = dict(),
+        cond_less: dict[str, object] = dict(),
+        cond_greater: dict[str, object] = dict(),
+    ) -> tuple[str, tuple]:
+        """
+        Function that generates the condition as well as the args for any query
+
+        Returns
+        -------
+        str
+            The condition Starting with WHERE of the sql query
+        tuple
+            The args parameter to give to MysqlClient.execute
+        """
+        conds = ["WHERE 1 = 1"]
+        args = list()
+
         for col in cond_null:
-            cond = cond + f" AND {col} IS NULL "
+            conds.append(f"AND {col} IS NULL")
+
         for col in cond_not_null:
-            cond = cond + f" AND {col} IS NOT NULL "
+            conds.append(f"AND {col} IS NOT NULL")
+
         for col, ls_val in cond_in.items():
-            if not ls_val:
+            if len(ls_val) == 0:
                 continue
-            cond = cond + f" AND {col} IN ({', '.join(self.ls_obj_to_str(ls_val))})"
-        for col, val in cond_eq.items():
-            if not val:
-                continue
-            cond = cond + f" AND {col} = {self.obj_to_str(val)}"
-        for col, val in cond_neq.items():
-            if not val:
-                continue
-            cond = cond + f" AND {col} <> {self.obj_to_str(val)}"
-        for col, val in cond_leq.items():
-            if not val:
-                continue
-            cond = cond + f" AND {col} <= {self.obj_to_str(val)}"
-        for col, val in cond_geq.items():
-            if not val:
-                continue
-            cond = cond + f" AND {col} >= {self.obj_to_str(val)}"
-        for col, val in cond_l.items():
-            if not val:
-                continue
-            cond = cond + f" AND {col} < {self.obj_to_str(val)}"
-        for col, val in cond_g.items():
-            if not val:
-                continue
-            cond = cond + f" AND {col} > {self.obj_to_str(val)}"
-        return cond
+            conds.append(f"AND {col} IN (" + ",".join(["%s"] * len(ls_val)) + ")")
+            args.extend(ls_val)
+
+        for col, val in cond_equal.items():
+            conds.append(f"AND {col} = %s")
+            args.append(val)
+
+        for col, val in cond_non_equal.items():
+            conds.append(f"AND {col} <> %s")
+            args.append(val)
+
+        for col, val in cond_less_or_eq.items():
+            conds.append(f"AND {col} <= %s")
+            args.append(val)
+
+        for col, val in cond_greater_or_eq.items():
+            conds.append(f"AND {col} >= %s")
+            args.append(val)
+
+        for col, val in cond_less.items():
+            conds.append(f"AND {col} < %s")
+            args.append(val)
+
+        for col, val in cond_greater.items():
+            conds.append(f"AND {col} > %s")
+            args.append(val)
+
+        return " ".join(conds), tuple(args)
 
     def delete(
         self,
@@ -119,12 +125,12 @@ class MysqlClient:
         cond_null: list[str] = list(),
         cond_not_null: list[str] = list(),
         cond_in: dict[str, list] = dict(),
-        cond_eq: dict[str, object] = dict(),
-        cond_neq: dict[str, object] = dict(),
-        cond_leq: dict[str, object] = dict(),
-        cond_geq: dict[str, object] = dict(),
-        cond_l: dict[str, object] = dict(),
-        cond_g: dict[str, object] = dict(),
+        cond_equal: dict[str, object] = dict(),
+        cond_non_equal: dict[str, object] = dict(),
+        cond_less_or_eq: dict[str, object] = dict(),
+        cond_greater_or_eq: dict[str, object] = dict(),
+        cond_less: dict[str, object] = dict(),
+        cond_greater: dict[str, object] = dict(),
         silent: bool = False,
     ) -> tuple[dict[str, object], ...]:
         """Delete rows from a database table based on conditions.
@@ -168,37 +174,31 @@ class MysqlClient:
         """
         res_mysql = self.select(
             table_name=table_name,
-            cond_eq=cond_eq,
-            cond_g=cond_g,
-            cond_geq=cond_geq,
+            cond_equal=cond_equal,
+            cond_greater=cond_greater,
+            cond_greater_or_eq=cond_greater_or_eq,
             cond_in=cond_in,
-            cond_l=cond_l,
-            cond_leq=cond_leq,
-            cond_neq=cond_neq,
+            cond_less=cond_less,
+            cond_less_or_eq=cond_less_or_eq,
+            cond_non_equal=cond_non_equal,
             cond_not_null=cond_not_null,
             cond_null=cond_null,
             silent=True,
         )
-        query = f"DELETE FROM {table_name} "
-        query = query + self.generate_cond(
-            cond_eq=cond_eq,
-            cond_g=cond_g,
-            cond_geq=cond_geq,
-            cond_in=cond_in,
-            cond_l=cond_l,
-            cond_leq=cond_leq,
-            cond_neq=cond_neq,
-            cond_not_null=cond_not_null,
-            cond_null=cond_null,
+
+        ids_to_delete_ls = [str(dt["id"]) for dt in res_mysql]
+
+        if not ids_to_delete_ls:
+            self.logger.info("nothing to update")
+            return tuple()
+
+        query_parts = [f"DELETE FROM {table_name}"]
+        query_parts.append(f"WHERE id IN ({", ".join(["%s"]*len(ids_to_delete_ls))})")
+        query_parts.append(";")
+
+        self.execute(
+            query=" ".join(query_parts), args=tuple(ids_to_delete_ls), silent=silent
         )
-        query = query + ";"
-        try:
-            self.execute(query=query, silent=silent)
-        except MySqlWrongQueryError as e:
-            self.logger.warning(
-                f"wrong query when updating by id, {traceback.format_exc()}"
-            )
-            raise e
         self.connection.commit()  # type: ignore
         return res_mysql
 
@@ -251,12 +251,12 @@ class MysqlClient:
         cond_null: list[str] = list(),
         cond_not_null: list[str] = list(),
         cond_in: dict[str, list] = dict(),
-        cond_eq: dict[str, object] = dict(),
-        cond_neq: dict[str, object] = dict(),
-        cond_leq: dict[str, object] = dict(),
-        cond_geq: dict[str, object] = dict(),
-        cond_l: dict[str, object] = dict(),
-        cond_g: dict[str, object] = dict(),
+        cond_equal: dict[str, object] = dict(),
+        cond_non_equal: dict[str, object] = dict(),
+        cond_less_or_eq: dict[str, object] = dict(),
+        cond_greater_or_eq: dict[str, object] = dict(),
+        cond_less: dict[str, object] = dict(),
+        cond_greater: dict[str, object] = dict(),
         silent: bool = False,
     ) -> int | None:
         """Execute a SELECT COUNT(...) query with various conditions.
@@ -302,21 +302,25 @@ class MysqlClient:
         MySqlWrongQueryError
             If query is wrong
         """
-        query = f"SELECT COUNT({', '.join(select_col) if select_col else '*'}) AS ct FROM {table_name} "
-        query = query + self.generate_cond(
-            cond_eq=cond_eq,
-            cond_g=cond_g,
-            cond_geq=cond_geq,
+        query_parts = [
+            f"SELECT COUNT({', '.join(select_col) if select_col else '*'}) AS ct FROM {table_name}"
+        ]
+        cond, args = self.generate_cond(
+            cond_equal=cond_equal,
+            cond_greater=cond_greater,
+            cond_greater_or_eq=cond_greater_or_eq,
             cond_in=cond_in,
-            cond_l=cond_l,
-            cond_leq=cond_leq,
-            cond_neq=cond_neq,
+            cond_less=cond_less,
+            cond_less_or_eq=cond_less_or_eq,
+            cond_non_equal=cond_non_equal,
             cond_not_null=cond_not_null,
             cond_null=cond_null,
         )
-        query = query + ";"
 
-        res_mysql = self.execute(query=query, silent=silent)
+        query_parts.append(cond)
+        query_parts.append(";")
+
+        res_mysql = self.execute(query=" ".join(query_parts), args=args, silent=silent)
         if not res_mysql:
             return None
         res = res_mysql[0].get("ct", None)
@@ -329,12 +333,12 @@ class MysqlClient:
         cond_null: list[str] = list(),
         cond_not_null: list[str] = list(),
         cond_in: dict[str, list] = dict(),
-        cond_eq: dict[str, object] = dict(),
-        cond_neq: dict[str, object] = dict(),
-        cond_leq: dict[str, object] = dict(),
-        cond_geq: dict[str, object] = dict(),
-        cond_l: dict[str, object] = dict(),
-        cond_g: dict[str, object] = dict(),
+        cond_equal: dict[str, object] = dict(),
+        cond_non_equal: dict[str, object] = dict(),
+        cond_less_or_eq: dict[str, object] = dict(),
+        cond_greater_or_eq: dict[str, object] = dict(),
+        cond_less: dict[str, object] = dict(),
+        cond_greater: dict[str, object] = dict(),
         order_by: str = "",
         ascending_order: bool = True,
         limit: int = 0,
@@ -386,30 +390,30 @@ class MysqlClient:
         MySqlWrongQueryError
             If query is wrong
         """
-        query = (
-            f"SELECT {', '.join(select_col) if select_col else '*'} FROM {table_name} "
-        )
-        query = query + self.generate_cond(
-            cond_eq=cond_eq,
-            cond_g=cond_g,
-            cond_geq=cond_geq,
+        query_parts = [
+            f"SELECT {', '.join(select_col) if select_col else '*'} FROM {table_name}"
+        ]
+        cond, args = self.generate_cond(
+            cond_equal=cond_equal,
+            cond_greater=cond_greater,
+            cond_greater_or_eq=cond_greater_or_eq,
             cond_in=cond_in,
-            cond_l=cond_l,
-            cond_leq=cond_leq,
-            cond_neq=cond_neq,
+            cond_less=cond_less,
+            cond_less_or_eq=cond_less_or_eq,
+            cond_non_equal=cond_non_equal,
             cond_not_null=cond_not_null,
             cond_null=cond_null,
         )
+        query_parts.append(cond)
         if order_by:
-            query = (
-                query + f" ORDER BY {order_by} {'ASC' if ascending_order else 'DESC'} "
+            query_parts.append(
+                f"ORDER BY {order_by} {'ASC' if ascending_order else 'DESC'}"
             )
-        if limit:
-            query = query + f" LIMIT {limit} "
-            query = query + f" OFFSET {offset} "
-        query = query + ";"
-
-        res_mysql = self.execute(query=query, silent=silent)
+        if limit > 0:
+            query_parts.append(f"LIMIT {limit}")
+            query_parts.append(f"OFFSET {offset}")
+        query_parts.append(";")
+        res_mysql = self.execute(query=" ".join(query_parts), args=args, silent=silent)
         return res_mysql
 
     def select_by_id(
@@ -447,7 +451,7 @@ class MysqlClient:
         res_mysql = self.select(
             table_name=table_name,
             select_col=select_col,
-            cond_eq={"id": id},
+            cond_equal={"id": id},
             silent=silent,
         )
         if not res_mysql:
@@ -478,15 +482,9 @@ class MysqlClient:
         MySqlWrongQueryError
             If query is wrong
         """
-        try:
-            res_mysql = self.delete(
-                table_name=table_name, cond_eq={"id": id}, silent=silent
-            )
-        except MySqlWrongQueryError as e:
-            self.logger.warning(
-                f"wrong query when deleting by id, {traceback.format_exc()}"
-            )
-            raise e
+        res_mysql = self.delete(
+            table_name=table_name, cond_equal={"id": id}, silent=silent
+        )
         self.connection.commit()  # type: ignore
         return res_mysql[0] if res_mysql else dict()
 
@@ -497,7 +495,7 @@ class MysqlClient:
     def insert_one(
         self,
         table_name: str,
-        values: dict[str, object],
+        object_to_insert: dict[str, object],
         silent=False,
         or_ignore=False,
     ):
@@ -507,7 +505,7 @@ class MysqlClient:
         ----------
         table_name : str
             Name of the table to insert into
-        values : dict
+        object_to_insert : dict
             Dictionary of column names and their corresponding values
         silent : bool, optional
             If True, suppress logging of the query execution, by default False
@@ -523,24 +521,25 @@ class MysqlClient:
         MySqlWrongQueryError
             If query is wrong
         """
-        if not values:
-            self.logger.warning("could not insert one, no values given")
+        if "createdAt" in object_to_insert:
+            del object_to_insert["createdAt"]
+        if "updatedAt" in object_to_insert:
+            del object_to_insert["updatedAt"]
+
+        if not object_to_insert:
+            self.logger.warning("could not insert one, no object_to_insert given")
             raise MySqlNoValueInsertionError()
 
-        query = f"""
-        INSERT {"IGNORE" if or_ignore else ""} INTO {table_name}
-        ({", ".join([v for v in values])})
-        VALUES ({", ".join(["%s"]*len(values))})
-        """
-        try:
-            self.execute(
-                query=query, args=tuple(v for v in values.values()), silent=silent
-            )
-        except MySqlWrongQueryError:
-            self.logger.warning(
-                f"wrong query when inserting one, {traceback.format_exc()}"
-            )
-            raise
+        query_parts = [f"INSERT {"IGNORE" if or_ignore else ""} INTO {table_name}"]
+        query_parts.append(f"({", ".join([col for col in object_to_insert])})")
+        query_parts.append(f"VALUES ({", ".join(["%s"] * len(object_to_insert))})")
+        query_parts.append(";")
+
+        self.execute(
+            query=" ".join(query_parts),
+            args=tuple(v for v in object_to_insert.values()),
+            silent=silent,
+        )
         self.connection.commit()  # type: ignore
 
     def update(
@@ -551,12 +550,12 @@ class MysqlClient:
         cond_null: list[str] = list(),
         cond_not_null: list[str] = list(),
         cond_in: dict[str, list] = dict(),
-        cond_eq: dict[str, object] = dict(),
-        cond_neq: dict[str, object] = dict(),
-        cond_leq: dict[str, object] = dict(),
-        cond_geq: dict[str, object] = dict(),
-        cond_l: dict[str, object] = dict(),
-        cond_g: dict[str, object] = dict(),
+        cond_equal: dict[str, object] = dict(),
+        cond_non_equal: dict[str, object] = dict(),
+        cond_less_or_eq: dict[str, object] = dict(),
+        cond_greater_or_eq: dict[str, object] = dict(),
+        cond_less: dict[str, object] = dict(),
+        cond_greater: dict[str, object] = dict(),
         silent: bool = False,
     ) -> tuple[dict[str, object], ...]:
         """Update rows in a database table based on conditions.
@@ -604,6 +603,11 @@ class MysqlClient:
         MySqlWrongQueryError
             If query is wrong
         """
+        if "updatedAt" in update_col_col:
+            del update_col_col["updatedAt"]
+        if "updatedAt" in update_col_value:
+            del update_col_value["updatedAt"]
+
         if not update_col_col and not update_col_value:
             raise MySqlNoUpdateValuesError()
 
@@ -614,50 +618,54 @@ class MysqlClient:
             if col in update_col_col:
                 raise (MySqlDuplicateColumnUpdateError(column=col))
 
-        try:
-            ids_to_update = self.select(
-                table_name=table_name,
-                select_col=["id"],
-                cond_eq=cond_eq,
-                cond_g=cond_g,
-                cond_geq=cond_geq,
-                cond_in=cond_in,
-                cond_l=cond_l,
-                cond_leq=cond_leq,
-                cond_neq=cond_neq,
-                cond_not_null=cond_not_null,
-                cond_null=cond_null,
-                silent=True,
-            )
-        except Exception as e:
-            self.logger.warning(
-                f"error when to getting the ids to update, {traceback.format_exc()}"
-            )
-            raise e
+        ids_to_update = self.select(
+            table_name=table_name,
+            select_col=["id"],
+            cond_equal=cond_equal,
+            cond_greater=cond_greater,
+            cond_greater_or_eq=cond_greater_or_eq,
+            cond_in=cond_in,
+            cond_less=cond_less,
+            cond_less_or_eq=cond_less_or_eq,
+            cond_non_equal=cond_non_equal,
+            cond_not_null=cond_not_null,
+            cond_null=cond_null,
+            silent=True,
+        )
         ids_to_update_ls = [str(dt["id"]) for dt in ids_to_update]
+
         if not ids_to_update:
             self.logger.info("nothing to update")
             return tuple()
 
-        for col in update_col_value:
-            update_col_value[col] = self.obj_to_str(update_col_value[col])
+        args = list()
+        query_parts = [f"UPDATE {table_name} SET"]
 
-        query = f"UPDATE {table_name} SET "
-        update_col = update_col_col | update_col_value
-        update_ls = [f" {col} = {update_col[col]} " for col in update_col]
-        query = query + f" {', '.join(update_ls)} "
-        query = query + f""" WHERE id IN ('{"', '".join(ids_to_update_ls)}')"""
-        try:
-            self.execute(query=query, silent=silent)
-        except MySqlWrongQueryError as e:
-            self.logger.warning(f"wrong query when updating, {traceback.format_exc()}")
-            raise e
+        query_set_part = list()
+        for col_prev, col_new in update_col_col.items():
+            query_set_part.append(f"{col_prev} = {col_new}")
+        for col, value in update_col_value.items():
+            query_set_part.append(f"{col} = %s")
+            args.append(value)
+        query_parts.append(", ".join(query_set_part))
+
+        query_parts.append(f"WHERE id IN ({','.join(['%s']*len(ids_to_update_ls))})")
+        args.extend(ids_to_update_ls)
+
+        query_parts.append(";")
+
+        self.execute(query=" ".join(query_parts), args=tuple(args), silent=silent)
         self.connection.commit()  # type: ignore
 
         return self.select(table_name=table_name, cond_in={"id": ids_to_update_ls})
 
     def update_by_id(
-        self, table_name: str, id: str, values: dict[str, object], silent=False
+        self,
+        table_name: str,
+        id: str,
+        update_col_col: dict[str, str] = dict(),
+        update_col_value: dict[str, object] = dict(),
+        silent=False,
     ) -> dict:
         """Update a single row in a table by its ID.
 
@@ -667,8 +675,10 @@ class MysqlClient:
             Name of the table to update
         id : str
             ID of the row to update
-        values : dict[str, object]
-            Dictionary of column names and their new values
+        update_col_col : dict[str, str], optional
+            Dictionary mapping columns to update with other column values
+        update_col_value : dict[str, object], optional
+            Dictionary mapping columns to update with specific values
         silent : bool, optional
             If True, suppress logging of the query execution, by default False
 
@@ -686,21 +696,21 @@ class MysqlClient:
         MySqlWrongQueryError
             If query is wrong
         """
-        try:
-            mysql_res = self.update(
-                table_name=table_name,
-                update_col_value={k: v for (k, v) in values.items() if k != "id"},
-                cond_eq={"id": id},
-                silent=silent,
-            )
-        except MySqlWrongQueryError as e:
-            self.logger.warning(
-                f"wrong query when updating by id, {traceback.format_exc()}"
-            )
-            raise e
+        mysql_res = self.update(
+            table_name=table_name,
+            update_col_col=update_col_col,
+            update_col_value=update_col_value,
+            cond_equal={"id": id},
+            silent=silent,
+        )
         return mysql_res[0] if mysql_res else dict()
 
-    def id_exists(self, table_name: str, id: str, silent: bool = False) -> bool:
+    def id_exists(
+        self,
+        table_name: str,
+        id: str,
+        silent: bool = False,
+    ) -> bool:
         res = self.select_by_id(table_name=table_name, id=id, silent=silent)
         if res:
             return True
