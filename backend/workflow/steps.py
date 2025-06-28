@@ -1,12 +1,9 @@
 from typing import cast
 
 from _agents import ConversationalAgent
-from _logger import get_logger
 from pydantic_ai import messages
 
 from .graph_state import GraphState
-
-logger = get_logger()
 
 
 def get_step_input():
@@ -35,8 +32,6 @@ def get_step_conversational_agent(agent: ConversationalAgent):
         message_user.content = "**Bob**: " + message_user.content
         message_llm = cast(messages.TextPart, new_messages[-1].parts[-1])
         message_llm.content = "**Assistant**: " + message_llm.content
-        for mes in new_messages:
-            logger.info(mes)
         state.message_history.extend(new_messages)
         state.last_ai_message = result.output
         return state
