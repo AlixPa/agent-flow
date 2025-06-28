@@ -1,4 +1,12 @@
-from .database import AgentBaseTable, AgentNodeTable, BaseTable, EdgeTable, NodeTable
+from .database import (
+    AgentBaseTable,
+    AgentNodeTable,
+    BaseTable,
+    EdgeTable,
+    GraphTable,
+    NodeTable,
+    UserTable,
+)
 from .responses import DataResponse, MessageResponse
 
 __all__ = [
@@ -7,6 +15,8 @@ __all__ = [
     "BaseTable",
     "DataResponse",
     "EdgeTable",
+    "GraphTable",
     "MessageResponse",
     "NodeTable",
+    "UserTable",
 ]

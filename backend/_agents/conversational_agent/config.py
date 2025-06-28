@@ -1,4 +1,4 @@
-from .base import BaseAgentConfig
+from _agents.base import BaseAgentConfig
 
 
 class ConversationalAgentConfig(BaseAgentConfig):

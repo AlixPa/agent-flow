@@ -1,4 +1,5 @@
 from sqlalchemy import VARCHAR, ForeignKey
+from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .agent_node import AgentNode
@@ -25,4 +26,9 @@ class Node(SqlBaseModel):
         ForeignKey(Graph.id),
         nullable=False,
         index=True,
+    )
+    isBaseEntryPoint: Mapped[bool] = mapped_column(
+        TINYINT(1),
+        nullable=False,
+        server_default="0",
     )
