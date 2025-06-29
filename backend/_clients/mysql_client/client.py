@@ -522,25 +522,12 @@ class MysqlClient:
         MySqlWrongQueryError
             If query is wrong
         """
-        if "createdAt" in to_insert:
-            del to_insert["createdAt"]
-        if "updatedAt" in to_insert:
-            del to_insert["updatedAt"]
-
-        if not to_insert:
-            raise MySqlNoValueInsertionError()
-
-        query_parts = [f"INSERT {"IGNORE" if or_ignore else ""} INTO {table_name}"]
-        query_parts.append(f"({",".join([col for col in to_insert])})")
-        query_parts.append(f"VALUES ({",".join(["%s"] * len(to_insert))})")
-        query_parts.append(";")
-
-        self.execute(
-            query=" ".join(query_parts),
-            args=tuple(v for v in to_insert.values()),
+        self.insert(
+            table_name=table_name,
+            to_insert=[to_insert],
             silent=silent,
+            or_ignore=or_ignore,
         )
-        self.connection.commit()  # type: ignore
 
     def insert(
         self,
@@ -583,21 +570,27 @@ class MysqlClient:
         if not to_insert:
             raise MySqlNoValueInsertionError()
 
-        cols = list(to_insert[0].keys())
+        cols = set(to_insert[0].keys())
         for row in to_insert:
             for col in cols:
                 if not col in row:
                     raise MySqlColumnInconsistencyError()
+            for col in row:
+                if not col in cols:
+                    raise MySqlColumnInconsistencyError()
+        cols = list(cols)
 
         query_parts = [f"INSERT {"IGNORE" if or_ignore else ""} INTO {table_name}"]
         query_parts.append(f"({",".join(cols)})")
         query_parts.append("VALUES")
+
         insert_part = list()
         args = list()
         for row in to_insert:
-            insert_part.append(f"({",".join(["%s"] * len(row))})")
+            insert_part.append(f"({",".join(["%s"] * len(cols))})")
             args.extend([row[col] for col in cols])
         query_parts.append(",".join(insert_part))
+
         query_parts.append(";")
 
         self.execute(
