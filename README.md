@@ -114,3 +114,10 @@ pre-commit install
 ```
 
 And voilà. Now everytime you try to commit it will reformat the files if you are not respecting the formatting of blackformatter and isort. But as you have the extensions on, everything should be fine.
+
+## Frontend
+with bun 1.2.17
+```
+bun install
+bun run dev
+```
