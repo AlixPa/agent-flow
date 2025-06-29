@@ -20,11 +20,6 @@ class AgentNode(SqlBaseModel):
         nullable=False,
         index=True,
     )
-    prompt: Mapped[str] = mapped_column(
-        TEXT(),
-        nullable=True,
-        server_default=None,
-    )
     userId: Mapped[str] = mapped_column(
         VARCHAR(255),
         ForeignKey(User.id),
@@ -37,8 +32,10 @@ class AgentNode(SqlBaseModel):
         nullable=False,
         index=True,
     )
+    prompt: Mapped[str] = mapped_column(
+        TEXT(),
+        nullable=True,
+        default_factory=lambda: None,
+        server_default=None,
+    )
     UniqueConstraint("name", "userId", "graphId")
-
-    def __init__(self, **kwargs):
-        kwargs["prompt"] = kwargs.get("prompt", None)
-        super().__init__(**kwargs)

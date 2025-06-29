@@ -7,6 +7,7 @@ from _config import MYSQL_DATABASE, MYSQL_HOST, MYSQL_PASSWORD, MYSQL_PORT, MYSQ
 from _logger import get_logger
 
 from .exceptions import (
+    MySqlColumnInconsistencyError,
     MySqlDuplicateColumnUpdateError,
     MySqlNoConnectionError,
     MySqlNoUpdateValuesError,
@@ -239,7 +240,7 @@ class MysqlClient:
                 self.logger.warning(
                     f"error while executing query, {traceback.format_exc()}"
                 )
-                raise MySqlWrongQueryError(f"{type(e)=}, {str(e)=}")
+                raise MySqlWrongQueryError(f"{traceback.format_exc()}")
             if not silent:
                 self.logging(cursor)
         return res
@@ -498,7 +499,7 @@ class MysqlClient:
         to_insert: dict[str, object],
         silent=False,
         or_ignore=False,
-    ):
+    ) -> None:
         """Insert a single row into a database table.
 
         Parameters
@@ -521,23 +522,80 @@ class MysqlClient:
         MySqlWrongQueryError
             If query is wrong
         """
-        if "createdAt" in to_insert:
-            del to_insert["createdAt"]
-        if "updatedAt" in to_insert:
-            del to_insert["updatedAt"]
+        self.insert(
+            table_name=table_name,
+            to_insert=[to_insert],
+            silent=silent,
+            or_ignore=or_ignore,
+        )
 
+    def insert(
+        self,
+        table_name: str,
+        to_insert: list[dict[str, object]],
+        silent=False,
+        or_ignore=False,
+    ) -> None:
+        """Insert multiple rows into a database table.
+
+        Parameters
+        ----------
+        table_name : str
+            Name of the table to insert into
+        to_insert : list[dict[str, object]]
+            List of dictionary of column names and their corresponding values
+        silent : bool, optional
+            If True, suppress logging of the query execution, by default False
+        or_ignore : bool, optional
+            If True, use INSERT IGNORE, default False
+
+        Raises
+        ------
+        MySqlNoValueInsertionError
+            If values dictionary is empty
+        MySqlNoConnectionError
+            If no database connection exists
+        MySqlWrongQueryError
+            If query is wrong
+        MySqlColumnInconsistencyError
+            If multiple rows have individually different columns
+        """
+        for row in to_insert:
+            if "createdAt" in row:
+                del row["createdAt"]
+            if "updatedAt" in row:
+                del row["updatedAt"]
+
+        to_insert = [row for row in to_insert if row]
         if not to_insert:
-            self.logger.warning("could not insert one, no object_to_insert given")
             raise MySqlNoValueInsertionError()
 
+        cols = set(to_insert[0].keys())
+        for row in to_insert:
+            for col in cols:
+                if not col in row:
+                    raise MySqlColumnInconsistencyError()
+            for col in row:
+                if not col in cols:
+                    raise MySqlColumnInconsistencyError()
+        cols = list(cols)
+
         query_parts = [f"INSERT {"IGNORE" if or_ignore else ""} INTO {table_name}"]
-        query_parts.append(f"({",".join([col for col in to_insert])})")
-        query_parts.append(f"VALUES ({",".join(["%s"] * len(to_insert))})")
+        query_parts.append(f"({",".join(cols)})")
+        query_parts.append("VALUES")
+
+        insert_part = list()
+        args = list()
+        for row in to_insert:
+            insert_part.append(f"({",".join(["%s"] * len(cols))})")
+            args.extend([row[col] for col in cols])
+        query_parts.append(",".join(insert_part))
+
         query_parts.append(";")
 
         self.execute(
             query=" ".join(query_parts),
-            args=tuple(v for v in to_insert.values()),
+            args=tuple(args),
             silent=silent,
         )
         self.connection.commit()  # type: ignore

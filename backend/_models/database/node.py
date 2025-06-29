@@ -15,25 +15,22 @@ class Node(SqlBaseModel):
         nullable=False,
         index=True,
     )
-    agentNodeId: Mapped[str] = mapped_column(
-        VARCHAR(255),
-        ForeignKey(AgentNode.id),
-        nullable=True,
-        server_default=None,
-    )
     graphId: Mapped[str] = mapped_column(
         VARCHAR(255),
         ForeignKey(Graph.id),
         nullable=False,
         index=True,
     )
+    agentNodeId: Mapped[str] = mapped_column(
+        VARCHAR(255),
+        ForeignKey(AgentNode.id),
+        nullable=True,
+        default_factory=lambda: None,
+        server_default=None,
+    )
     isBaseEntryPoint: Mapped[bool] = mapped_column(
         TINYINT(1),
         nullable=False,
+        default_factory=lambda: False,
         server_default="0",
     )
-
-    def __init__(self, **kwargs):
-        kwargs["agentNodeId"] = kwargs.get("agentNodeId", None)
-        kwargs["isBaseEntryPoint"] = bool(kwargs.get("isBaseEntryPoint", False))
-        super().__init__(**kwargs)
