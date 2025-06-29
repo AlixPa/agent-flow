@@ -3,36 +3,35 @@ from uuid import uuid4
 
 from sqlalchemy import DATETIME, VARCHAR, text
 from sqlalchemy.inspection import inspect
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, MappedAsDataclass, mapped_column
 
 
-class Base(DeclarativeBase):
+class Base(DeclarativeBase, MappedAsDataclass):
     pass
 
 
-class SqlBaseModel(Base):
+class SqlBaseModel(Base, kw_only=True):
     __abstract__ = True
 
     id: Mapped[str] = mapped_column(
         VARCHAR(255),
         primary_key=True,
+        default_factory=lambda: str(uuid4()),
     )
     createdAt: Mapped[datetime] = mapped_column(
         DATETIME(),
         nullable=False,
+        default_factory=lambda: None,  # let db handle it
         server_default=text("CURRENT_TIMESTAMP"),
         index=True,
     )
     updatedAt: Mapped[datetime] = mapped_column(
         DATETIME(),
         nullable=False,
+        default_factory=lambda: None,  # let db handle it
         server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"),
         index=True,
     )
-
-    def __init__(self, **kwargs):
-        kwargs["id"] = kwargs.get("id", str(uuid4()))
-        super().__init__(**kwargs)
 
     def to_dict(
         self,

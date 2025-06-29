@@ -8,6 +8,11 @@ class MySqlNoValueInsertionError(Exception):
         super().__init__("No value given to insert.")
 
 
+class MySqlColumnInconsistencyError(Exception):
+    def __init__(self):
+        super().__init__("Inconsistency in in the columns of different rows")
+
+
 class MySqlDuplicateColumnUpdateError(Exception):
     def __init__(self, column: str):
         super().__init__(f"Updating multiple time the same column, {column=}")
