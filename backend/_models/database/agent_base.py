@@ -1,4 +1,4 @@
-from sqlalchemy import TEXT, VARCHAR
+from sqlalchemy import VARCHAR
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import SqlBaseModel

@@ -267,7 +267,7 @@ class MysqlClient:
 
         Parameters
         ----------
-        table : str
+        table_name : str
             Name of the table to query
         select_col : list[str], optional
             List of columns to include in the COUNT(...), by default all columns

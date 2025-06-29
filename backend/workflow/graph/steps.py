@@ -6,6 +6,7 @@ from pydantic_ai import messages
 from .graph_state import GraphState
 
 
+## TODO: Of course this should be coming from frontend, temporary input()
 def get_step_input():
     def step_input(state: GraphState) -> GraphState:
         state.last_user_message = input("\nEnter any task:")
