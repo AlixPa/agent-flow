@@ -5,6 +5,7 @@ from .database import (
     EdgeTable,
     GraphTable,
     NodeTable,
+    SqlBaseModel,
     UserTable,
 )
 from .responses import DataResponse, MessageResponse
@@ -18,5 +19,6 @@ __all__ = [
     "GraphTable",
     "MessageResponse",
     "NodeTable",
+    "SqlBaseModel",
     "UserTable",
 ]

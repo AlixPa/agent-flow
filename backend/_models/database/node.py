@@ -1,3 +1,5 @@
+from typing import Any
+
 from sqlalchemy import VARCHAR, ForeignKey
 from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy.orm import Mapped, mapped_column

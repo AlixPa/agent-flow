@@ -1,16 +1,17 @@
 from _agents.base import BaseAgent
-from config import ConversationalAgentConfig
+
+from .config import ConversationalAgentConfig
 
 
 class ConversationalAgent(BaseAgent):
     def __init__(
         self,
-        model: str = ConversationalAgentConfig.MODEL,
-        system_prompt: str = ConversationalAgentConfig.SYSTEM_PROMPT,
+        model: str | None = None,
+        system_prompt: str | None = None,
         instrument: bool = True,
     ) -> None:
         super().__init__(
-            model=model,
-            system_prompt=system_prompt,
+            model=model or ConversationalAgentConfig.MODEL,
+            system_prompt=system_prompt or ConversationalAgentConfig.SYSTEM_PROMPT,
             instrument=instrument,
         )
