@@ -1,3 +1,3 @@
 class BaseAgentConfig:
-    MODEL = "openai:gpt-4.1-mini"
-    SYSTEM_PROMPT = "You are and agent."
+    MODEL: str
+    SYSTEM_PROMPT: str

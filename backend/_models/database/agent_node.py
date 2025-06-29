@@ -32,7 +32,13 @@ class AgentNode(SqlBaseModel):
         nullable=False,
         index=True,
     )
-    prompt: Mapped[str] = mapped_column(
+    customModel: Mapped[str] = mapped_column(
+        VARCHAR(255),
+        nullable=True,
+        default_factory=lambda: None,
+        server_default=None,
+    )
+    customPrompt: Mapped[str] = mapped_column(
         TEXT(),
         nullable=True,
         default_factory=lambda: None,

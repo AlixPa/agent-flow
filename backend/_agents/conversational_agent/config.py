@@ -2,6 +2,7 @@ from _agents.base import BaseAgentConfig
 
 
 class ConversationalAgentConfig(BaseAgentConfig):
+    MODEL = "openai:gpt-4.1-mini"
     SYSTEM_PROMPT = """You are a lively, warm, and emotionally intelligent conversational partner.
 You speak like a real human would in casual conversation — playful, spontaneous, and curious.
 Avoid formal or robotic language like "How can I assist you today?" or "I am an AI assistant."

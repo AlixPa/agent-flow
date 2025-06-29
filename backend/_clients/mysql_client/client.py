@@ -1,10 +1,12 @@
 ## TODO: Migrate to other than pymysql to support async
 import traceback
 from logging import Logger
+from typing import Type, TypeVar, overload
 
 import pymysql.cursors
 from _config import MYSQL_DATABASE, MYSQL_HOST, MYSQL_PASSWORD, MYSQL_PORT, MYSQL_USER
 from _logger import get_logger
+from _models import SqlBaseModel
 
 from .exceptions import (
     MySqlColumnInconsistencyError,
@@ -16,6 +18,7 @@ from .exceptions import (
 )
 
 base_logger = get_logger()
+T = TypeVar("T", bound=SqlBaseModel)
 
 
 class MysqlClient:
@@ -174,7 +177,7 @@ class MysqlClient:
             If query is wrong
         """
         res_mysql = self.select(
-            table_name=table_name,
+            table=table_name,
             cond_equal=cond_equal,
             cond_greater=cond_greater,
             cond_greater_or_eq=cond_greater_or_eq,
@@ -327,9 +330,10 @@ class MysqlClient:
         res = res_mysql[0].get("ct", None)
         return int(str(res)) if res else None
 
+    @overload
     def select(
         self,
-        table_name: str,
+        table: str,
         select_col: list[str] = list(),
         cond_null: list[str] = list(),
         cond_not_null: list[str] = list(),
@@ -345,13 +349,54 @@ class MysqlClient:
         limit: int = 0,
         offset: int = 0,
         silent: bool = False,
-    ) -> tuple[dict[str, object], ...]:
+    ) -> tuple[dict[str, object], ...]: ...
+
+    @overload
+    def select(
+        self,
+        table: Type[T],
+        select_col: list[str] = list(),
+        cond_null: list[str] = list(),
+        cond_not_null: list[str] = list(),
+        cond_in: dict[str, list] = dict(),
+        cond_equal: dict[str, object] = dict(),
+        cond_non_equal: dict[str, object] = dict(),
+        cond_less_or_eq: dict[str, object] = dict(),
+        cond_greater_or_eq: dict[str, object] = dict(),
+        cond_less: dict[str, object] = dict(),
+        cond_greater: dict[str, object] = dict(),
+        order_by: str = "",
+        ascending_order: bool = True,
+        limit: int = 0,
+        offset: int = 0,
+        silent: bool = False,
+    ) -> tuple[T, ...]: ...
+
+    def select(
+        self,
+        table: str | Type[T],
+        select_col: list[str] = list(),
+        cond_null: list[str] = list(),
+        cond_not_null: list[str] = list(),
+        cond_in: dict[str, list] = dict(),
+        cond_equal: dict[str, object] = dict(),
+        cond_non_equal: dict[str, object] = dict(),
+        cond_less_or_eq: dict[str, object] = dict(),
+        cond_greater_or_eq: dict[str, object] = dict(),
+        cond_less: dict[str, object] = dict(),
+        cond_greater: dict[str, object] = dict(),
+        order_by: str = "",
+        ascending_order: bool = True,
+        limit: int = 0,
+        offset: int = 0,
+        silent: bool = False,
+    ) -> tuple[dict[str, object], ...] | tuple[T, ...]:
         """Execute a SELECT query with various conditions.
 
         Parameters
         ----------
-        table_name : str
-            Name of the table to query
+        table : str | Type[T]
+            Table name or actual table class to query from
         select_col : list[str], optional
             List of columns to select, by default all columns
         cond_null : list[str], optional
@@ -382,7 +427,7 @@ class MysqlClient:
         Returns
         -------
         tuple
-            Query results as a tuple of dictionaries
+            Query results as a tuple of dictionaries or actual class if given
 
         Raises
         ------
@@ -391,9 +436,14 @@ class MysqlClient:
         MySqlWrongQueryError
             If query is wrong
         """
-        query_parts = [
-            f"SELECT {', '.join(select_col) if select_col else '*'} FROM {table_name}"
-        ]
+        if isinstance(table, str):
+            query_parts = [
+                f"SELECT {', '.join(select_col) if select_col else '*'} FROM {table}"
+            ]
+        else:
+            query_parts = [
+                f"SELECT {', '.join(select_col) if select_col else '*'} FROM {table.__tablename__}"
+            ]
         cond, args = self.generate_cond(
             cond_equal=cond_equal,
             cond_greater=cond_greater,
@@ -415,7 +465,10 @@ class MysqlClient:
             query_parts.append(f"OFFSET {offset}")
         query_parts.append(";")
         res_mysql = self.execute(query=" ".join(query_parts), args=args, silent=silent)
-        return res_mysql
+        if isinstance(table, str):
+            return res_mysql
+        else:
+            return tuple(table(**r) for r in res_mysql)  # type: ignore
 
     def select_by_id(
         self,
@@ -450,7 +503,7 @@ class MysqlClient:
             If query is wrong
         """
         res_mysql = self.select(
-            table_name=table_name,
+            table=table_name,
             select_col=select_col,
             cond_equal={"id": id},
             silent=silent,
@@ -681,7 +734,7 @@ class MysqlClient:
                 raise (MySqlDuplicateColumnUpdateError(column=col))
 
         ids_to_update = self.select(
-            table_name=table_name,
+            table=table_name,
             select_col=["id"],
             cond_equal=cond_equal,
             cond_greater=cond_greater,
@@ -719,7 +772,7 @@ class MysqlClient:
         self.execute(query=" ".join(query_parts), args=tuple(args), silent=silent)
         self.connection.commit()  # type: ignore
 
-        return self.select(table_name=table_name, cond_in={"id": ids_to_update_ls})
+        return self.select(table=table_name, cond_in={"id": ids_to_update_ls})
 
     def update_by_id(
         self,
