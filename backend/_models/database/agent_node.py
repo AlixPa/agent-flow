@@ -1,7 +1,6 @@
 from sqlalchemy import TEXT, VARCHAR, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from .agent_base import AgentBase
 from .base import SqlBaseModel
 from .graph import Graph
 from .user import User
@@ -14,9 +13,8 @@ class AgentNode(SqlBaseModel):
         VARCHAR(255),
         nullable=False,
     )
-    agentBaseId: Mapped[str] = mapped_column(
+    agentBaseName: Mapped[str] = mapped_column(
         VARCHAR(255),
-        ForeignKey(AgentBase.id),
         nullable=False,
         index=True,
     )

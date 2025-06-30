@@ -1,5 +1,4 @@
 from .database import (
-    AgentBaseTable,
     AgentNodeTable,
     BaseTable,
     EdgeTable,
@@ -11,7 +10,6 @@ from .database import (
 from .responses import DataResponse, MessageResponse
 
 __all__ = [
-    "AgentBaseTable",
     "AgentNodeTable",
     "BaseTable",
     "DataResponse",
