@@ -1,9 +1,13 @@
 from abc import ABC
 from collections.abc import Sequence
+from logging import Logger
 from typing import Any, Type
 
+from _logger import get_logger
 from pydantic import BaseModel
 from pydantic_ai import Agent, agent, messages, models, settings, usage
+
+logger = get_logger()
 
 
 class BaseAgent(ABC):
@@ -12,12 +16,16 @@ class BaseAgent(ABC):
         model: str,
         system_prompt: str,
         instrument: bool = True,
+        logger: Logger = logger,
+        silent: bool = False,
     ) -> None:
         self.agent = Agent(
             instrument=instrument,
             model=model,
             system_prompt=system_prompt,
         )
+        self.logger = logger
+        self.silent = silent
 
     async def run(
         self,
@@ -32,6 +40,8 @@ class BaseAgent(ABC):
         usage: usage.Usage | None = None,
         infer_name: bool = True,
     ) -> agent.AgentRunResult[Any]:
+        if not self.silent:
+            self.logger.debug(f"Called {self.__class__=} with {user_prompt=}")
         return await self.agent.run(
             user_prompt=user_prompt,
             output_type=output_type,
