@@ -13,7 +13,11 @@ logger = get_logger()
 
 
 class GraphBuilder:
-    def __init__(self, logger: Logger = logger, silent: bool = False) -> None:
+    def __init__(
+        self,
+        logger: Logger = logger,
+        silent: bool = False,
+    ) -> None:
         self.mysql_client = MysqlClient()
         self.agent_base_name_class_map = agent_base_name_class_map
         self.node_type_step_func_map = node_type_step_func_map
