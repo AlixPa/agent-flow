@@ -36,7 +36,7 @@ class LocalFormatter(logging.Formatter):
         message = record.getMessage()
         correlationId = correlation_id.get() or "unknown"
 
-        log_record = f"\n{color}{timestamp}\n{level} from {logger}:{correlationId}\n{message}{RESET_COLOR}"
+        log_record = f"\n{color}{timestamp}\n{level} from {logger}:{correlationId=}\n{message}{RESET_COLOR}"
 
         return log_record
 
