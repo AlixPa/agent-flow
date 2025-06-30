@@ -3,6 +3,7 @@ import logging
 import sys
 
 from _config import ENV, DateTimeFormat, ServiceEnv
+from asgi_correlation_id import correlation_id
 
 
 class JsonFormatter(logging.Formatter):
@@ -12,6 +13,7 @@ class JsonFormatter(logging.Formatter):
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
+            "correlation_id": correlation_id.get() or "unknown",
         }
         return json.dumps(log_record)
 
@@ -32,10 +34,9 @@ class LocalFormatter(logging.Formatter):
         color = LOG_COlORS.get(level, "")
         logger = record.name
         message = record.getMessage()
+        correlationId = correlation_id.get() or "unknown"
 
-        log_record = (
-            f"\n{color}{timestamp}\n{level} from {logger}\n{message}{RESET_COLOR}"
-        )
+        log_record = f"\n{color}{timestamp}\n{level} from {logger}:{correlationId=}\n{message}{RESET_COLOR}"
 
         return log_record
 
