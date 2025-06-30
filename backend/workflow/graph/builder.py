@@ -1,6 +1,6 @@
 from _clients import MysqlClient
 from _logger import get_logger
-from _models import AgentBaseTable, AgentNodeTable, EdgeTable, NodeTable
+from _models import AgentNodeTable, EdgeTable, NodeTable
 from langgraph.graph import StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
@@ -32,13 +32,6 @@ class GraphBuilder:
             )
         )
 
-    def _get_agent_base(self, id: str) -> AgentBaseTable:
-        return AgentBaseTable(
-            **self.mysql_client.select_by_id(
-                table_name=AgentBaseTable.__tablename__, id=id
-            )
-        )
-
     def _get_agent_node(self, id: str) -> AgentNodeTable:
         return AgentNodeTable(
             **self.mysql_client.select_by_id(
@@ -52,13 +45,13 @@ class GraphBuilder:
         for node in self._get_nodes(graph_id=id):
             if node.type == "agent":
                 agent_node = self._get_agent_node(id=node.agentNodeId)
-                agent_base = self._get_agent_base(id=agent_node.agentBaseId)
-                agent = self.agent_base_name_class_map[agent_base.name](
+                agent = self.agent_base_name_class_map[agent_node.agentBaseName](
                     model=agent_node.customModel,
                     system_prompt=agent_node.customPrompt,
                 )
                 builder.add_node(
-                    node.id, self.node_type_step_func_map[agent_base.name](agent)
+                    node.id,
+                    self.node_type_step_func_map[agent_node.agentBaseName](agent),
                 )
             else:
                 builder.add_node(node.id, self.node_type_step_func_map[node.type]())

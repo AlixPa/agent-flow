@@ -1,4 +1,3 @@
-from .agent_base import AgentBase as AgentBaseTable
 from .agent_node import AgentNode as AgentNodeTable
 from .base import Base as BaseTable
 from .base import SqlBaseModel
@@ -8,7 +7,6 @@ from .node import Node as NodeTable
 from .user import User as UserTable
 
 __all__ = [
-    "AgentBaseTable",
     "AgentNodeTable",
     "BaseTable",
     "EdgeTable",
