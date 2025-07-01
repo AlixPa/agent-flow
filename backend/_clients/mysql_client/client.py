@@ -441,7 +441,7 @@ class MysqlClient:
         table : str | Type[T]
             Table name or actual table class to query from
         select_col : list[str], optional
-            List of columns to select, by default all columns. Note that this should not be used with a SqlModel expected return
+            List of columns to select, by default all columns. Note that this should not be used with a SqlModel expected return.
         cond_null : list[str], optional
             Columns that must be NULL
         cond_not_null : list[str], optional
