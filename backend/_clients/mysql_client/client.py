@@ -24,18 +24,18 @@ T = TypeVar("T", bound=SqlBaseModel)
 
 
 class MysqlClient(ABC):
-    def __init__(self, logger: Logger | None = None):
+    def __init__(self, logger: Logger | None = None) -> None:
         self.logger = logger if logger else base_logger
         self.connection: pymysql.Connection[pymysql.cursors.DictCursor] | None = None
 
     @abstractmethod
-    def _connect(self):
+    def _connect(self) -> None:
         """
         Sub-class should overwrite this method with correct credentials.
         """
         pass
 
-    def _logging(self, cursor):
+    def _logging(self, cursor) -> None:
         self.logger.debug(
             f"MysqlClient executed: {str(cursor._executed)} {cursor.rowcount=}"
         )
@@ -129,10 +129,11 @@ class MysqlClient(ABC):
             If no database connection exists
         MySqlWrongQueryError
             If query is wrong
+        MySqlNoConnectionError
+            If no database connection exists
         """
         if not self.connection:
-            self.logger.error("could not execute query, no connection to Database")
-            raise MySqlNoConnectionError()
+            raise MySqlNoConnectionError("Could not execute query, no connection yet.")
         with self.connection.cursor() as cursor:
             try:
                 cursor.execute(query=query, args=args)
@@ -200,10 +201,10 @@ class MysqlClient(ABC):
 
         Raises
         ------
-        NoConnectionError
-            If no database connection exists
         MySqlWrongQueryError
             If query is wrong
+        MySqlNoConnectionError
+            If no database connection exists
         """
         query_parts = [
             f"SELECT COUNT({', '.join(select_col) if select_col else '*'}) AS ct FROM {table_name}"
@@ -331,7 +332,7 @@ class MysqlClient(ABC):
 
         Raises
         ------
-        NoConnectionError
+        MySqlNoConnectionError
             If no database connection exists
         MySqlWrongQueryError
             If query is wrong
@@ -416,7 +417,7 @@ class MysqlClient(ABC):
 
         Raises
         ------
-        NoConnectionError
+        MySqlNoConnectionError
             If no database connection exists
         MySqlWrongQueryError
             If query is wrong
@@ -449,11 +450,11 @@ class MysqlClient(ABC):
 
 
 class MysqlClientReader(MysqlClient):
-    def __init__(self, logger: Logger | None = None):
+    def __init__(self, logger: Logger | None = None) -> None:
         super().__init__(logger)
         self._connect()
 
-    def _connect(self):
+    def _connect(self) -> None:
         ## TODO : Have a MYSQL_USER_WRITER and MYSQL_USER_READER
         self.connection = pymysql.connect(
             host=MYSQL_HOST,
@@ -465,7 +466,7 @@ class MysqlClientReader(MysqlClient):
             cursorclass=pymysql.cursors.DictCursor,
         )
 
-    def check_alive(self):
+    def check_alive(self) -> None:
         try:
             try:
                 check_alive_res = self.execute("select 1;")
@@ -476,18 +477,18 @@ class MysqlClientReader(MysqlClient):
             self.logger.info("MysqlClientReader is alive.")
         except Exception:
             self.logger.critical("ERROR: Lost connection to Database.")
-            raise MySqlNoConnectionError()
+            raise MySqlNoConnectionError("ERROR: Lost connection to Database.")
 
-    def close(self):
+    def close(self) -> None:
         if self.connection:
             self.connection.close()
 
 
 class MysqlClientWriter(MysqlClient):
-    def __init__(self, logger: Logger | None = None):
+    def __init__(self, logger: Logger | None = None) -> None:
         super().__init__(logger)
 
-    def _connect(self):
+    def _connect(self) -> None:
         ## TODO : Have a MYSQL_USER_WRITER and MYSQL_USER_READER
         self.connection = pymysql.connect(
             host=MYSQL_HOST,
@@ -534,9 +535,9 @@ class MysqlClientWriter(MysqlClient):
 
         Raises
         ------
-        NoValueInsertionError
+        MySqlNoValueInsertionError
             If values dictionary is empty
-        NoConnectionError
+        MySqlNoConnectionError
             If no database connection exists
         MySqlWrongQueryError
             If query is wrong
@@ -594,10 +595,14 @@ class MysqlClientWriter(MysqlClient):
         for row in to_insert:
             for col in cols:
                 if not col in row:
-                    raise MySqlColumnInconsistencyError()
+                    raise MySqlColumnInconsistencyError(
+                        f"{col=} is not in one of the row to insert: {row=}"
+                    )
             for col in row:
                 if not col in cols:
-                    raise MySqlColumnInconsistencyError()
+                    raise MySqlColumnInconsistencyError(
+                        f"{col=} is not in the first row to insert: col_of_first_row={cols}"
+                    )
         cols = list(cols)
 
         query_parts = [f"INSERT {"IGNORE" if or_ignore else ""} INTO {table_name}"]
@@ -669,9 +674,9 @@ class MysqlClientWriter(MysqlClient):
 
         Raises
         ------
-        NoConnectionError
+        MySqlNoConnectionError
             If no database connection exists
-        DuplicateColumnUpdateError
+        MySqlDuplicateColumnUpdateError
             If a column appears in both update_col_col and update_col_value
         MySqlWrongQueryError
             If query is wrong
@@ -759,9 +764,9 @@ class MysqlClientWriter(MysqlClient):
 
         Raises
         ------
-        NoConnectionError
+        MySqlNoConnectionError
             If no database connection exists
-        DuplicateColumnUpdateError
+        MySqlDuplicateColumnUpdateError
             If a column appears in both update_col_col and update_col_value
         MySqlWrongQueryError
             If query is wrong
@@ -861,7 +866,7 @@ class MysqlClientWriter(MysqlClient):
 
         Raises
         ------
-        NoConnectionError
+        MySqlNoConnectionError
             If no database connection exists
         MySqlWrongQueryError
             If query is wrong
@@ -931,7 +936,7 @@ class MysqlClientWriter(MysqlClient):
 
         Raises
         ------
-        NoConnectionError
+        MySqlNoConnectionError
             If no database connection exists
         MySqlWrongQueryError
             If query is wrong
