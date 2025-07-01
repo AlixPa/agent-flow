@@ -1,7 +1,7 @@
 ## TODO: Migrate to other than pymysql to support async
 import traceback
 from logging import Logger
-from typing import Type, TypeVar, cast, overload
+from typing import Type, TypeVar, overload
 
 import pymysql.cursors
 from _config import MYSQL_DATABASE, MYSQL_HOST, MYSQL_PASSWORD, MYSQL_PORT, MYSQL_USER
