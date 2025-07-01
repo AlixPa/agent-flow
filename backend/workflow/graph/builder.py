@@ -43,12 +43,10 @@ class GraphBuilder:
         )
 
     def _get_agent_node(self, id: str) -> AgentNodeTable:
-        return AgentNodeTable(
-            **self.mysql_client.select_by_id(
-                table_name=AgentNodeTable.__tablename__,
-                id=id,
-                silent=self.silent,
-            )
+        return self.mysql_client.select_by_id(
+            table=AgentNodeTable,
+            id=id,
+            silent=self.silent,
         )
 
     def get_graph(self, id: str) -> CompiledStateGraph:

@@ -26,3 +26,8 @@ class MySqlNoUpdateValuesError(Exception):
 class MySqlWrongQueryError(Exception):
     def __init__(self, detail: str | None = None) -> None:
         super().__init__(detail)
+
+
+class MySqlIdNotFoundError(Exception):
+    def __init__(self, detail: str | None = None) -> None:
+        super().__init__(detail)
