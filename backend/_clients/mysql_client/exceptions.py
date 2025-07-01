@@ -1,6 +1,6 @@
 class MySqlNoConnectionError(Exception):
-    def __init__(self):
-        super().__init__("No connection to database yet.")
+    def __init__(self, detail: str | None = None) -> None:
+        super().__init__(detail)
 
 
 class MySqlNoValueInsertionError(Exception):
@@ -9,8 +9,8 @@ class MySqlNoValueInsertionError(Exception):
 
 
 class MySqlColumnInconsistencyError(Exception):
-    def __init__(self):
-        super().__init__("Inconsistency in in the columns of different rows")
+    def __init__(self, detail: str | None = None) -> None:
+        super().__init__(detail)
 
 
 class MySqlDuplicateColumnUpdateError(Exception):
