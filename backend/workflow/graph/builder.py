@@ -1,6 +1,6 @@
 from logging import Logger
 
-from _clients import MysqlClient
+from _clients import MysqlClientReader
 from _logger import get_logger
 from _models import AgentNodeTable, EdgeTable, NodeTable
 from langgraph.graph import StateGraph
@@ -18,7 +18,7 @@ class GraphBuilder:
         logger: Logger = logger,
         silent: bool = False,
     ) -> None:
-        self.mysql_client = MysqlClient()
+        self.mysql_client = MysqlClientReader()
         self.agent_base_name_class_map = agent_base_name_class_map
         self.node_type_step_func_map = node_type_step_func_map
         self.logger = logger

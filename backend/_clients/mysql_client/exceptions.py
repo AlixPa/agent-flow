@@ -1,6 +1,6 @@
 class MySqlNoConnectionError(Exception):
-    def __init__(self):
-        super().__init__("No connection to database yet.")
+    def __init__(self, details: str = ""):
+        super().__init__("No connection to database." + details)
 
 
 class MySqlNoValueInsertionError(Exception):

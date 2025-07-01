@@ -1,5 +1,6 @@
 ## TODO: Migrate to other than pymysql to support async
 import traceback
+from abc import ABC, abstractmethod
 from logging import Logger
 from typing import Type, TypeVar, overload
 
@@ -22,46 +23,24 @@ base_logger = get_logger()
 T = TypeVar("T", bound=SqlBaseModel)
 
 
-class MysqlClient:
+class MysqlClient(ABC):
     def __init__(self, logger: Logger | None = None):
         self.logger = logger if logger else base_logger
         self.connection: pymysql.Connection[pymysql.cursors.DictCursor] | None = None
-        self.port = MYSQL_PORT
-        self.host = MYSQL_HOST
-        self.user = MYSQL_USER
-        self.password = MYSQL_PASSWORD
-        self.database = MYSQL_DATABASE
-        self.__connect()
 
-    def __connect(self):
-        self.connection = pymysql.connect(
-            host=self.host,
-            port=self.port,
-            user=self.user,
-            passwd=self.password,
-            database=self.database,
-            charset="utf8mb4",
-            cursorclass=pymysql.cursors.DictCursor,
-        )
+    @abstractmethod
+    def _connect(self):
+        """
+        Sub-class should overwrite this method with correct credentials.
+        """
+        pass
 
-    def check_alive(self):
-        try:
-            try:
-                check_alive_res = self.execute("select 1;")
-            except:
-                check_alive_res = None
-            if not check_alive_res:
-                self.__connect()
-        except:
-            self.logger.critical("ERROR: Lost connection to Database.")
-            raise MySqlNoConnectionError()
-
-    def logging(self, cursor):
+    def _logging(self, cursor):
         self.logger.debug(
             f"MysqlClient executed: {str(cursor._executed)} {cursor.rowcount=}"
         )
 
-    def generate_cond(
+    def _generate_cond(
         self,
         cond_null: list[str] = list(),
         cond_not_null: list[str] = list(),
@@ -124,128 +103,6 @@ class MysqlClient:
 
         return " ".join(conds), tuple(args)
 
-    @overload
-    def delete(
-        self,
-        table: str,
-        cond_null: list[str] = list(),
-        cond_not_null: list[str] = list(),
-        cond_in: dict[str, list] = dict(),
-        cond_equal: dict[str, object] = dict(),
-        cond_non_equal: dict[str, object] = dict(),
-        cond_less_or_eq: dict[str, object] = dict(),
-        cond_greater_or_eq: dict[str, object] = dict(),
-        cond_less: dict[str, object] = dict(),
-        cond_greater: dict[str, object] = dict(),
-        silent: bool = False,
-    ) -> tuple[dict[str, object], ...]: ...
-
-    @overload
-    def delete(
-        self,
-        table: Type[T],
-        cond_null: list[str] = list(),
-        cond_not_null: list[str] = list(),
-        cond_in: dict[str, list] = dict(),
-        cond_equal: dict[str, object] = dict(),
-        cond_non_equal: dict[str, object] = dict(),
-        cond_less_or_eq: dict[str, object] = dict(),
-        cond_greater_or_eq: dict[str, object] = dict(),
-        cond_less: dict[str, object] = dict(),
-        cond_greater: dict[str, object] = dict(),
-        silent: bool = False,
-    ) -> tuple[T, ...]: ...
-
-    def delete(
-        self,
-        table: str | Type[T],
-        cond_null: list[str] = list(),
-        cond_not_null: list[str] = list(),
-        cond_in: dict[str, list] = dict(),
-        cond_equal: dict[str, object] = dict(),
-        cond_non_equal: dict[str, object] = dict(),
-        cond_less_or_eq: dict[str, object] = dict(),
-        cond_greater_or_eq: dict[str, object] = dict(),
-        cond_less: dict[str, object] = dict(),
-        cond_greater: dict[str, object] = dict(),
-        silent: bool = False,
-    ) -> tuple[dict[str, object], ...] | tuple[T, ...]:
-        """
-        Delete rows from a database table based on conditions and returns them.
-
-        Parameters
-        ----------
-        table : str | Type[T]
-            Table name or actual table class to query from
-        cond_null : list[str], optional
-            Columns that must be NULL
-        cond_not_null : list[str], optional
-            Columns that must not be NULL
-        cond_in : dict[str, list], optional
-            Column values that must be in given list
-        cond_eq : dict[str, object], optional
-            Column values that must equal given value
-        cond_neq : dict[str, object], optional
-            Column values that must not equal given value
-        cond_leq : dict[str, object], optional
-            Column values that must be less than or equal to given value
-        cond_geq : dict[str, object], optional
-            Column values that must be greater than or equal to given value
-        cond_l : dict[str, object], optional
-            Column values that must be less than given value
-        cond_g : dict[str, object], optional
-            Column values that must be greater than given value
-        silent : bool, optional
-            If True, suppress logging of the query execution, by default False
-
-        Returns
-        -------
-        tuple
-            Deleted rows as a tuple of dictionaries or actual class if given
-
-        Raises
-        ------
-        NoConnectionError
-            If no database connection exists
-        MySqlWrongQueryError
-            If query is wrong
-        """
-        res_mysql = self.select(
-            table=table,
-            cond_equal=cond_equal,
-            cond_greater=cond_greater,
-            cond_greater_or_eq=cond_greater_or_eq,
-            cond_in=cond_in,
-            cond_less=cond_less,
-            cond_less_or_eq=cond_less_or_eq,
-            cond_non_equal=cond_non_equal,
-            cond_not_null=cond_not_null,
-            cond_null=cond_null,
-            silent=True,
-        )
-        if isinstance(table, str):
-            ids_to_delete_ls: list[str] = [str(dt["id"]) for dt in res_mysql]  # type: ignore
-        else:
-            ids_to_delete_ls: list[str] = [r.id for r in res_mysql]  # type: ignore
-
-        if not ids_to_delete_ls:
-            self.logger.info("nothing to update")
-            return tuple()
-
-        if isinstance(table, str):
-            query_parts = [f"DELETE FROM {table}"]
-        else:
-            query_parts = [f"DELETE FROM {table.__tablename__}"]
-
-        query_parts.append(f"WHERE id IN ({", ".join(["%s"]*len(ids_to_delete_ls))})")
-        query_parts.append(";")
-
-        self.execute(
-            query=" ".join(query_parts), args=tuple(ids_to_delete_ls), silent=silent
-        )
-        self.connection.commit()  # type: ignore
-        return res_mysql
-
     def execute(
         self, query: str, args: tuple | dict | None = None, silent=False
     ) -> tuple[dict[str, object], ...]:
@@ -286,7 +143,7 @@ class MysqlClient:
                 )
                 raise MySqlWrongQueryError(f"{traceback.format_exc()}")
             if not silent:
-                self.logging(cursor)
+                self._logging(cursor)
         return res
 
     def count(
@@ -351,7 +208,7 @@ class MysqlClient:
         query_parts = [
             f"SELECT COUNT({', '.join(select_col) if select_col else '*'}) AS ct FROM {table_name}"
         ]
-        cond, args = self.generate_cond(
+        cond, args = self._generate_cond(
             cond_equal=cond_equal,
             cond_greater=cond_greater,
             cond_greater_or_eq=cond_greater_or_eq,
@@ -487,7 +344,7 @@ class MysqlClient:
             query_parts = [
                 f"SELECT {', '.join(select_col) if select_col else '*'} FROM {table.__tablename__}"
             ]
-        cond, args = self.generate_cond(
+        cond, args = self._generate_cond(
             cond_equal=cond_equal,
             cond_greater=cond_greater,
             cond_greater_or_eq=cond_greater_or_eq,
@@ -578,55 +435,81 @@ class MysqlClient:
             )
         return res_mysql[0]
 
-    @overload
-    def delete_by_id(
-        self, table: str, id: str, silent: bool = False
-    ) -> dict[str, object]: ...
+    def id_exists(
+        self,
+        table_name: str,
+        id: str,
+        silent: bool = False,
+    ) -> bool:
+        try:
+            self.select_by_id(table=table_name, id=id, silent=silent)
+            return True
+        except MySqlIdNotFoundError:
+            return False
 
-    @overload
-    def delete_by_id(self, table: Type[T], id: str, silent: bool = False) -> T: ...
 
-    def delete_by_id(
-        self, table: str | Type[T], id: str, silent: bool = False
-    ) -> dict[str, object] | T:
-        """
-        Delete a row from a database table by its ID.
+class MysqlClientReader(MysqlClient):
+    def __init__(self, logger: Logger | None = None):
+        super().__init__(logger)
+        self._connect()
 
-        Parameters
-        ----------
-        table : str | Type[T]
-            Table name or actual table class to query from
-        id : str
-            ID of the row to delete
-        silent : bool, optional
-            If True, suppress logging of the query execution, by default False
+    def _connect(self):
+        ## TODO : Have a MYSQL_USER_WRITER and MYSQL_USER_READER
+        self.connection = pymysql.connect(
+            host=MYSQL_HOST,
+            port=MYSQL_PORT,
+            user=MYSQL_USER,
+            passwd=MYSQL_PASSWORD,
+            database=MYSQL_DATABASE,
+            charset="utf8mb4",
+            cursorclass=pymysql.cursors.DictCursor,
+        )
 
-        Returns
-        -------
-        dict[str, object] | T
-            Deleted row as a dictionnary or actual class if given
-
-        Raises
-        ------
-        NoConnectionError
-            If no database connection exists
-        MySqlWrongQueryError
-            If query is wrong
-        MySqlIdNotFoundError
-            If id not found in table
-        """
-        res_mysql = self.delete(table=table, cond_equal={"id": id}, silent=silent)
-        self.connection.commit()  # type: ignore
-
-        if not res_mysql:
-            raise MySqlIdNotFoundError(
-                f"{id=} not found during delete in table {table if isinstance(table, str) else table.__tablename__}"
-            )
-        return res_mysql[0]
+    def check_alive(self):
+        try:
+            try:
+                check_alive_res = self.execute("select 1;")
+            except Exception:
+                check_alive_res = None
+            if check_alive_res is None:
+                self._connect()
+            self.logger.info("MysqlClientReader is alive.")
+        except Exception:
+            self.logger.critical("ERROR: Lost connection to Database.")
+            raise MySqlNoConnectionError()
 
     def close(self):
         if self.connection:
             self.connection.close()
+
+
+class MysqlClientWriter(MysqlClient):
+    def __init__(self, logger: Logger | None = None):
+        super().__init__(logger)
+
+    def _connect(self):
+        ## TODO : Have a MYSQL_USER_WRITER and MYSQL_USER_READER
+        self.connection = pymysql.connect(
+            host=MYSQL_HOST,
+            port=MYSQL_PORT,
+            user=MYSQL_USER,
+            passwd=MYSQL_PASSWORD,
+            database=MYSQL_DATABASE,
+            charset="utf8mb4",
+            cursorclass=pymysql.cursors.DictCursor,
+        )
+
+    def start_transaction(self) -> None:
+        self._connect()
+
+    def commit(self) -> None:
+        """
+        Commits the transaction and close the connection.
+        """
+        if not self.connection:
+            raise MySqlNoConnectionError("Cannot commit if transaction is closed.")
+        self.connection.commit()
+        self.connection.close()
 
     def insert_one(
         self,
@@ -635,7 +518,8 @@ class MysqlClient:
         silent=False,
         or_ignore=False,
     ) -> None:
-        """Insert a single row into a database table.
+        """
+        Insert a single row into a database table.
 
         Parameters
         ----------
@@ -671,7 +555,8 @@ class MysqlClient:
         silent=False,
         or_ignore=False,
     ) -> None:
-        """Insert multiple rows into a database table.
+        """
+        Insert multiple rows into a database table.
 
         Parameters
         ----------
@@ -733,7 +618,6 @@ class MysqlClient:
             args=tuple(args),
             silent=silent,
         )
-        self.connection.commit()  # type: ignore
 
     def update(
         self,
@@ -751,7 +635,8 @@ class MysqlClient:
         cond_greater: dict[str, object] = dict(),
         silent: bool = False,
     ) -> None:
-        """Update rows in a database table based on conditions.
+        """
+        Update rows in a database table based on conditions.
 
         Parameters
         ----------
@@ -847,7 +732,6 @@ class MysqlClient:
         query_parts.append(";")
 
         self.execute(query=" ".join(query_parts), args=tuple(args), silent=silent)
-        self.connection.commit()  # type: ignore
 
     def update_by_id(
         self,
@@ -857,7 +741,8 @@ class MysqlClient:
         update_col_value: dict[str, object] = dict(),
         silent=False,
     ) -> None:
-        """Update a single row in a table by its ID.
+        """
+        Update a single row in a table by its ID.
 
         Parameters
         ----------
@@ -895,14 +780,168 @@ class MysqlClient:
             silent=silent,
         )
 
-    def id_exists(
+    @overload
+    def delete(
         self,
-        table_name: str,
-        id: str,
+        table: str,
+        cond_null: list[str] = list(),
+        cond_not_null: list[str] = list(),
+        cond_in: dict[str, list] = dict(),
+        cond_equal: dict[str, object] = dict(),
+        cond_non_equal: dict[str, object] = dict(),
+        cond_less_or_eq: dict[str, object] = dict(),
+        cond_greater_or_eq: dict[str, object] = dict(),
+        cond_less: dict[str, object] = dict(),
+        cond_greater: dict[str, object] = dict(),
         silent: bool = False,
-    ) -> bool:
-        try:
-            self.select_by_id(table=table_name, id=id, silent=silent)
-            return True
-        except MySqlIdNotFoundError:
-            return False
+    ) -> tuple[dict[str, object], ...]: ...
+
+    @overload
+    def delete(
+        self,
+        table: Type[T],
+        cond_null: list[str] = list(),
+        cond_not_null: list[str] = list(),
+        cond_in: dict[str, list] = dict(),
+        cond_equal: dict[str, object] = dict(),
+        cond_non_equal: dict[str, object] = dict(),
+        cond_less_or_eq: dict[str, object] = dict(),
+        cond_greater_or_eq: dict[str, object] = dict(),
+        cond_less: dict[str, object] = dict(),
+        cond_greater: dict[str, object] = dict(),
+        silent: bool = False,
+    ) -> tuple[T, ...]: ...
+
+    def delete(
+        self,
+        table: str | Type[T],
+        cond_null: list[str] = list(),
+        cond_not_null: list[str] = list(),
+        cond_in: dict[str, list] = dict(),
+        cond_equal: dict[str, object] = dict(),
+        cond_non_equal: dict[str, object] = dict(),
+        cond_less_or_eq: dict[str, object] = dict(),
+        cond_greater_or_eq: dict[str, object] = dict(),
+        cond_less: dict[str, object] = dict(),
+        cond_greater: dict[str, object] = dict(),
+        silent: bool = False,
+    ) -> tuple[dict[str, object], ...] | tuple[T, ...]:
+        """
+        Delete rows from a database table based on conditions and returns them.
+
+        Parameters
+        ----------
+        table : str | Type[T]
+            Table name or actual table class to query from
+        cond_null : list[str], optional
+            Columns that must be NULL
+        cond_not_null : list[str], optional
+            Columns that must not be NULL
+        cond_in : dict[str, list], optional
+            Column values that must be in given list
+        cond_eq : dict[str, object], optional
+            Column values that must equal given value
+        cond_neq : dict[str, object], optional
+            Column values that must not equal given value
+        cond_leq : dict[str, object], optional
+            Column values that must be less than or equal to given value
+        cond_geq : dict[str, object], optional
+            Column values that must be greater than or equal to given value
+        cond_l : dict[str, object], optional
+            Column values that must be less than given value
+        cond_g : dict[str, object], optional
+            Column values that must be greater than given value
+        silent : bool, optional
+            If True, suppress logging of the query execution, by default False
+
+        Returns
+        -------
+        tuple
+            Deleted rows as a tuple of dictionaries or actual class if given
+
+        Raises
+        ------
+        NoConnectionError
+            If no database connection exists
+        MySqlWrongQueryError
+            If query is wrong
+        """
+        res_mysql = self.select(
+            table=table,
+            cond_equal=cond_equal,
+            cond_greater=cond_greater,
+            cond_greater_or_eq=cond_greater_or_eq,
+            cond_in=cond_in,
+            cond_less=cond_less,
+            cond_less_or_eq=cond_less_or_eq,
+            cond_non_equal=cond_non_equal,
+            cond_not_null=cond_not_null,
+            cond_null=cond_null,
+            silent=True,
+        )
+        if isinstance(table, str):
+            ids_to_delete_ls: list[str] = [str(dt["id"]) for dt in res_mysql]  # type: ignore
+        else:
+            ids_to_delete_ls: list[str] = [r.id for r in res_mysql]  # type: ignore
+
+        if not ids_to_delete_ls:
+            self.logger.info("nothing to update")
+            return tuple()
+
+        if isinstance(table, str):
+            query_parts = [f"DELETE FROM {table}"]
+        else:
+            query_parts = [f"DELETE FROM {table.__tablename__}"]
+
+        query_parts.append(f"WHERE id IN ({", ".join(["%s"]*len(ids_to_delete_ls))})")
+        query_parts.append(";")
+
+        self.execute(
+            query=" ".join(query_parts), args=tuple(ids_to_delete_ls), silent=silent
+        )
+        return res_mysql
+
+    @overload
+    def delete_by_id(
+        self, table: str, id: str, silent: bool = False
+    ) -> dict[str, object]: ...
+
+    @overload
+    def delete_by_id(self, table: Type[T], id: str, silent: bool = False) -> T: ...
+
+    def delete_by_id(
+        self, table: str | Type[T], id: str, silent: bool = False
+    ) -> dict[str, object] | T:
+        """
+        Delete a row from a database table by its ID.
+
+        Parameters
+        ----------
+        table : str | Type[T]
+            Table name or actual table class to query from
+        id : str
+            ID of the row to delete
+        silent : bool, optional
+            If True, suppress logging of the query execution, by default False
+
+        Returns
+        -------
+        dict[str, object] | T
+            Deleted row as a dictionnary or actual class if given
+
+        Raises
+        ------
+        NoConnectionError
+            If no database connection exists
+        MySqlWrongQueryError
+            If query is wrong
+        MySqlIdNotFoundError
+            If id not found in table
+        """
+        res_mysql = self.delete(table=table, cond_equal={"id": id}, silent=silent)
+
+        if not res_mysql:
+            raise MySqlIdNotFoundError(
+                f"{id=} not found during delete in table {table if isinstance(table, str) else table.__tablename__}"
+            )
+        return res_mysql[0]
