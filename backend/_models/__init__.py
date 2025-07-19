@@ -1,22 +1,22 @@
 from .database import (
     AgentNodeTable,
-    BaseTable,
+    Base,
+    BaseTableModel,
     EdgeTable,
     GraphTable,
     NodeTable,
-    SqlBaseModel,
     UserTable,
 )
 from .responses import DataResponse, MessageResponse
 
 __all__ = [
     "AgentNodeTable",
-    "BaseTable",
+    "Base",
+    "BaseTableModel",
     "DataResponse",
     "EdgeTable",
     "GraphTable",
     "MessageResponse",
     "NodeTable",
-    "SqlBaseModel",
     "UserTable",
 ]

@@ -3,11 +3,11 @@ from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .agent_node import AgentNode
-from .base import SqlBaseModel
+from .base import BaseTableModel
 from .graph import Graph
 
 
-class Node(SqlBaseModel):
+class Node(BaseTableModel):
     __tablename__ = "node"
 
     type: Mapped[str] = mapped_column(

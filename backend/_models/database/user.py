@@ -1,5 +1,5 @@
-from .base import SqlBaseModel
+from .base import BaseTableModel
 
 
-class User(SqlBaseModel):
+class User(BaseTableModel):
     __tablename__ = "user"

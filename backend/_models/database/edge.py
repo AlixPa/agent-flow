@@ -1,12 +1,12 @@
 from sqlalchemy import VARCHAR, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from .base import SqlBaseModel
+from .base import BaseTableModel
 from .graph import Graph
 from .node import Node
 
 
-class Edge(SqlBaseModel):
+class Edge(BaseTableModel):
     __tablename__ = "edge"
 
     fromNodeId: Mapped[str] = mapped_column(

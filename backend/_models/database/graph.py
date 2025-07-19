@@ -1,11 +1,11 @@
 from sqlalchemy import VARCHAR, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from .base import SqlBaseModel
+from .base import BaseTableModel
 from .user import User
 
 
-class Graph(SqlBaseModel):
+class Graph(BaseTableModel):
     __tablename__ = "graph"
 
     name: Mapped[str] = mapped_column(
