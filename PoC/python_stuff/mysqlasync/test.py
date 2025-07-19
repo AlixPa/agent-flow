@@ -1,7 +1,7 @@
 import asyncio
 
-from _clients import AMysqlClientReader, AMysqlClientWriter
-from _models import EdgeTable
+from src.clients import AMysqlClientReader, AMysqlClientWriter
+from src.models.database import EdgeTable
 
 
 async def main():

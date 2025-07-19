@@ -1,8 +1,8 @@
 from datetime import datetime
 
-from _config import DateTimeFormat
-from _logger import get_logger
 from fastapi import APIRouter
+from src.config.formats import DateTimeFormat
+from src.logger import get_logger
 
 router = APIRouter(prefix="/health")
 logger = get_logger()
