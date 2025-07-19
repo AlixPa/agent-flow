@@ -3,9 +3,9 @@ from collections.abc import Sequence
 from logging import Logger
 from typing import Any, Type
 
-from _logger import get_logger
 from pydantic import BaseModel
 from pydantic_ai import Agent, agent, messages, models, settings, usage
+from src.logger import get_logger
 
 logger = get_logger()
 

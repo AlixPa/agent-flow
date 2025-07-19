@@ -1,7 +1,7 @@
 from typing import cast
 
-from _agents import ConversationalAgent
 from pydantic_ai import messages
+from src.agents.step_agents import ConversationalAgent
 
 from .graph_state import GraphState
 
@@ -15,6 +15,7 @@ def get_step_input():
     return step_input
 
 
+## TODO: Of course this should be sent from frontend, temporary output()
 def get_step_output():
     def step_output(state: GraphState) -> GraphState:
         print(f"Response: {state.last_ai_message}")

@@ -1,6 +1,6 @@
 from typing import Callable, Type, TypedDict
 
-from _agents import ConversationalAgent
+from src.agents.step_agents import ConversationalAgent
 
 from .steps import get_step_conversational_agent, get_step_input, get_step_output
 
