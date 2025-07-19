@@ -524,6 +524,9 @@ class AMysqlClientWriter(AMysqlClient):
         super().__init__(logger)
         self._connect()
 
+    def _connect(self) -> None:
+        self.engine = _get_engine_writer()
+
     async def execute(
         self, query: str, args: dict[str, object] | None = None, silent=False
     ) -> list[dict[str, object]]:
@@ -568,9 +571,6 @@ class AMysqlClientWriter(AMysqlClient):
             self._logging(query=query, args=args, result=result_alchemy)
 
         return [dict(r._mapping) for r in rows]
-
-    def _connect(self) -> None:
-        self.engine = _get_engine_writer()
 
     async def insert_one(
         self,
