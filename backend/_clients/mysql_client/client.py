@@ -7,7 +7,7 @@ from typing import Type, TypeVar, overload
 import pymysql.cursors
 from _config import MYSQL_DATABASE, MYSQL_HOST, MYSQL_PASSWORD, MYSQL_PORT, MYSQL_USER
 from _logger import get_logger
-from _models import SqlBaseModel
+from _models import BaseTableModel
 
 from .exceptions import (
     MySqlColumnInconsistencyError,
@@ -20,7 +20,7 @@ from .exceptions import (
 )
 
 base_logger = get_logger()
-T = TypeVar("T", bound=SqlBaseModel)
+GenericTableModel = TypeVar("GenericTableModel", bound=BaseTableModel)
 
 
 class MysqlClient(ABC):
@@ -254,7 +254,7 @@ class MysqlClient(ABC):
     @overload
     def select(
         self,
-        table: Type[T],
+        table: Type[GenericTableModel],
         select_col: list[str] = list(),
         cond_null: list[str] = list(),
         cond_not_null: list[str] = list(),
@@ -270,11 +270,11 @@ class MysqlClient(ABC):
         limit: int = 0,
         offset: int = 0,
         silent: bool = False,
-    ) -> tuple[T, ...]: ...
+    ) -> tuple[GenericTableModel, ...]: ...
 
     def select(
         self,
-        table: str | Type[T],
+        table: str | Type[GenericTableModel],
         select_col: list[str] = list(),
         cond_null: list[str] = list(),
         cond_not_null: list[str] = list(),
@@ -290,7 +290,7 @@ class MysqlClient(ABC):
         limit: int = 0,
         offset: int = 0,
         silent: bool = False,
-    ) -> tuple[dict[str, object], ...] | tuple[T, ...]:
+    ) -> tuple[dict[str, object], ...] | tuple[GenericTableModel, ...]:
         """
         Execute a SELECT query with various conditions.
 
@@ -383,19 +383,19 @@ class MysqlClient(ABC):
     @overload
     def select_by_id(
         self,
-        table: Type[T],
+        table: Type[GenericTableModel],
         id: str,
         select_col: list[str] = list(),
         silent: bool = False,
-    ) -> T: ...
+    ) -> GenericTableModel: ...
 
     def select_by_id(
         self,
-        table: str | Type[T],
+        table: str | Type[GenericTableModel],
         id: str,
         select_col: list[str] = list(),
         silent: bool = False,
-    ) -> dict[str, object] | T:
+    ) -> dict[str, object] | GenericTableModel:
         """
         Select a row from a database table by its ID.
 
@@ -804,7 +804,7 @@ class MysqlClientWriter(MysqlClient):
     @overload
     def delete(
         self,
-        table: Type[T],
+        table: Type[GenericTableModel],
         cond_null: list[str] = list(),
         cond_not_null: list[str] = list(),
         cond_in: dict[str, list] = dict(),
@@ -815,11 +815,11 @@ class MysqlClientWriter(MysqlClient):
         cond_less: dict[str, object] = dict(),
         cond_greater: dict[str, object] = dict(),
         silent: bool = False,
-    ) -> tuple[T, ...]: ...
+    ) -> tuple[GenericTableModel, ...]: ...
 
     def delete(
         self,
-        table: str | Type[T],
+        table: str | Type[GenericTableModel],
         cond_null: list[str] = list(),
         cond_not_null: list[str] = list(),
         cond_in: dict[str, list] = dict(),
@@ -830,7 +830,7 @@ class MysqlClientWriter(MysqlClient):
         cond_less: dict[str, object] = dict(),
         cond_greater: dict[str, object] = dict(),
         silent: bool = False,
-    ) -> tuple[dict[str, object], ...] | tuple[T, ...]:
+    ) -> tuple[dict[str, object], ...] | tuple[GenericTableModel, ...]:
         """
         Delete rows from a database table based on conditions and returns them.
 
@@ -912,11 +912,13 @@ class MysqlClientWriter(MysqlClient):
     ) -> dict[str, object]: ...
 
     @overload
-    def delete_by_id(self, table: Type[T], id: str, silent: bool = False) -> T: ...
+    def delete_by_id(
+        self, table: Type[GenericTableModel], id: str, silent: bool = False
+    ) -> GenericTableModel: ...
 
     def delete_by_id(
-        self, table: str | Type[T], id: str, silent: bool = False
-    ) -> dict[str, object] | T:
+        self, table: str | Type[GenericTableModel], id: str, silent: bool = False
+    ) -> dict[str, object] | GenericTableModel:
         """
         Delete a row from a database table by its ID.
 

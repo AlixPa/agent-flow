@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from _config import MYSQL_DATABASE, MYSQL_HOST, MYSQL_PASSWORD, MYSQL_PORT, MYSQL_USER
 from _logger import get_logger
-from _models import SqlBaseModel
+from _models import BaseTableModel
 from sqlalchemy import CursorResult, text
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
@@ -24,23 +24,11 @@ from .exceptions import (
 from .models import CondReturn
 
 base_logger = get_logger()
-engine_writer = None
 engine_reader = None
+engine_writer = None
 
 
-def _get_engine_writer() -> AsyncEngine:
-    global engine_writer
-    if engine_writer is None:
-        engine_writer = create_async_engine(
-            f"mysql+asyncmy://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}",
-            pool_size=5,
-            max_overflow=5,
-            pool_timeout=60,
-            pool_recycle=1800,
-        )
-    return engine_writer
-
-
+# TODO: Isolated credentials for reading
 def _get_engine_reader() -> AsyncEngine:
     global engine_reader
     if engine_reader is None:
@@ -54,7 +42,21 @@ def _get_engine_reader() -> AsyncEngine:
     return engine_reader
 
 
-T = TypeVar("T", bound=SqlBaseModel)
+# TODO: Isolated credentials for writing
+def _get_engine_writer() -> AsyncEngine:
+    global engine_writer
+    if engine_writer is None:
+        engine_writer = create_async_engine(
+            f"mysql+asyncmy://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}",
+            pool_size=5,
+            max_overflow=5,
+            pool_timeout=60,
+            pool_recycle=1800,
+        )
+    return engine_writer
+
+
+GenericTableModel = TypeVar("GenericTableModel", bound=BaseTableModel)
 
 
 class AMysqlClient(ABC):
@@ -295,7 +297,7 @@ class AMysqlClient(ABC):
     @overload
     async def select(
         self,
-        table: Type[T],
+        table: Type[GenericTableModel],
         select_col: list[str] = list(),
         cond_null: list[str] = list(),
         cond_not_null: list[str] = list(),
@@ -311,11 +313,11 @@ class AMysqlClient(ABC):
         limit: int = 0,
         offset: int = 0,
         silent: bool = False,
-    ) -> list[T]: ...
+    ) -> list[GenericTableModel]: ...
 
     async def select(
         self,
-        table: str | Type[T],
+        table: str | Type[GenericTableModel],
         select_col: list[str] = list(),
         cond_null: list[str] = list(),
         cond_not_null: list[str] = list(),
@@ -331,7 +333,7 @@ class AMysqlClient(ABC):
         limit: int = 0,
         offset: int = 0,
         silent: bool = False,
-    ) -> list[dict[str, object]] | list[T]:
+    ) -> list[dict[str, object]] | list[GenericTableModel]:
         """
         Execute a SELECT query with various conditions.
 
@@ -431,19 +433,19 @@ class AMysqlClient(ABC):
     @overload
     async def select_by_id(
         self,
-        table: Type[T],
+        table: Type[GenericTableModel],
         id: str,
         select_col: list[str] = list(),
         silent: bool = False,
-    ) -> T: ...
+    ) -> GenericTableModel: ...
 
     async def select_by_id(
         self,
-        table: str | Type[T],
+        table: str | Type[GenericTableModel],
         id: str,
         select_col: list[str] = list(),
         silent: bool = False,
-    ) -> dict[str, object] | T:
+    ) -> dict[str, object] | GenericTableModel:
         """
         Select a row from a database table by its ID.
 
@@ -866,7 +868,7 @@ class AMysqlClientWriter(AMysqlClient):
     @overload
     async def delete(
         self,
-        table: Type[T],
+        table: Type[GenericTableModel],
         cond_null: list[str] = list(),
         cond_not_null: list[str] = list(),
         cond_in: dict[str, list] = dict(),
@@ -877,11 +879,11 @@ class AMysqlClientWriter(AMysqlClient):
         cond_less: dict[str, object] = dict(),
         cond_greater: dict[str, object] = dict(),
         silent: bool = False,
-    ) -> list[T]: ...
+    ) -> list[GenericTableModel]: ...
 
     async def delete(
         self,
-        table: str | Type[T],
+        table: str | Type[GenericTableModel],
         cond_null: list[str] = list(),
         cond_not_null: list[str] = list(),
         cond_in: dict[str, list] = dict(),
@@ -892,7 +894,7 @@ class AMysqlClientWriter(AMysqlClient):
         cond_less: dict[str, object] = dict(),
         cond_greater: dict[str, object] = dict(),
         silent: bool = False,
-    ) -> list[dict[str, object]] | list[T]:
+    ) -> list[dict[str, object]] | list[GenericTableModel]:
         """
         Delete rows from a database table based on conditions and returns them.
 
@@ -975,12 +977,12 @@ class AMysqlClientWriter(AMysqlClient):
 
     @overload
     async def delete_by_id(
-        self, table: Type[T], id: str, silent: bool = False
-    ) -> T: ...
+        self, table: Type[GenericTableModel], id: str, silent: bool = False
+    ) -> GenericTableModel: ...
 
     async def delete_by_id(
-        self, table: str | Type[T], id: str, silent: bool = False
-    ) -> dict[str, object] | T:
+        self, table: str | Type[GenericTableModel], id: str, silent: bool = False
+    ) -> dict[str, object] | GenericTableModel:
         """
         Delete a row from a database table by its ID.
 

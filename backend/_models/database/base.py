@@ -10,7 +10,7 @@ class Base(DeclarativeBase, MappedAsDataclass):
     pass
 
 
-class SqlBaseModel(Base, kw_only=True):
+class BaseTableModel(Base, kw_only=True):
     __abstract__ = True
 
     id: Mapped[str] = mapped_column(
