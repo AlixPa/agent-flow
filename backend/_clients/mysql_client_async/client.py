@@ -508,7 +508,7 @@ class AMysqlClientReader(AMysqlClient):
     async def check_alive(self) -> None:
         try:
             try:
-                check_alive_res = self.execute("select 1;")
+                check_alive_res = await self.execute("select 1;")
             except Exception:
                 check_alive_res = None
             if check_alive_res is None:
