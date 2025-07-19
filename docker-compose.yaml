@@ -43,3 +43,16 @@ services:
         "--bind",
         "0.0.0.0:${BACKEND_PORT}",
       ]
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/local/Dockerfile.frontend
+    ports:
+      - "${FRONTEND_PORT}:${FRONTEND_PORT}"
+    volumes:
+      - ./frontend:/frontend
+      - node_modules_cache:/frontend/node_modules
+
+volumes:
+  node_modules_cache:
