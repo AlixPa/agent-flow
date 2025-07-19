@@ -1,6 +1,7 @@
 from typing import cast
 
 from pydantic_ai import messages
+from src.agents.base import BaseAgent
 from src.agents.step_agents import ConversationalAgent
 
 from .graph_state import GraphState
@@ -8,7 +9,7 @@ from .graph_state import GraphState
 
 ## TODO: Of course this should be coming from frontend, temporary input()
 def get_step_input():
-    def step_input(state: GraphState) -> GraphState:
+    async def step_input(state: GraphState) -> GraphState:
         state.last_user_message = input("\nEnter any task:")
         return state
 
@@ -17,14 +18,16 @@ def get_step_input():
 
 ## TODO: Of course this should be sent from frontend, temporary output()
 def get_step_output():
-    def step_output(state: GraphState) -> GraphState:
+    async def step_output(state: GraphState) -> GraphState:
         print(f"Response: {state.last_ai_message}")
         return state
 
     return step_output
 
 
-def get_step_conversational_agent(agent: ConversationalAgent):
+def get_step_conversational_agent(agent: BaseAgent):
+    assert isinstance(agent, ConversationalAgent), "Expected ConversationalAgent"
+
     async def step_agent_conversation(state: GraphState) -> GraphState:
         result = await agent.run(
             user_prompt=state.last_user_message, message_history=state.message_history
