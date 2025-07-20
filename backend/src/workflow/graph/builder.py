@@ -49,7 +49,8 @@ class GraphBuilder:
     def _get_agent(self, agent_node: AgentNodeTable) -> BaseAgent:
         agent_class = BuilderConfig.map_name_agent[agent_node.agentBaseName]
         return agent_class(
-            model=agent_node.customModel, system_prompt=agent_node.customPrompt
+            model=agent_node.customModel,
+            system_prompt=agent_node.customPrompt,
         )
 
     @overload

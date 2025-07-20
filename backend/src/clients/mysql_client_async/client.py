@@ -568,7 +568,10 @@ class AMysqlClientWriter(AMysqlClient):
         try:
             async with self.engine.begin() as conn:
                 result_alchemy = await conn.execute(text(query), args or {})
-                rows = result_alchemy.fetchall()
+                if result_alchemy.returns_rows:
+                    rows = result_alchemy.fetchall()
+                else:
+                    rows = list()
         except ProgrammingError:
             self.logger.warning(
                 f"error while executing query, {traceback.format_exc()}"
@@ -580,9 +583,27 @@ class AMysqlClientWriter(AMysqlClient):
 
         return [dict(r._mapping) for r in rows]
 
+    @overload
     async def insert_one(
         self,
-        table_name: str,
+        table: str,
+        to_insert: dict[str, object],
+        silent: bool = False,
+        or_ignore=False,
+    ) -> None: ...
+
+    @overload
+    async def insert_one(
+        self,
+        table: Type[GenericTableModel],
+        to_insert: dict[str, object],
+        silent: bool = False,
+        or_ignore=False,
+    ) -> None: ...
+
+    async def insert_one(
+        self,
+        table: str | Type[GenericTableModel],
         to_insert: dict[str, object],
         silent=False,
         or_ignore=False,
@@ -610,16 +631,34 @@ class AMysqlClientWriter(AMysqlClient):
         AMySqlWrongQueryError
             If query is wrong
         """
-        await self.insert(
-            table_name=table_name,
+        return await self.insert(
+            table=table,
             to_insert=[to_insert],
             silent=silent,
             or_ignore=or_ignore,
         )
 
+    @overload
     async def insert(
         self,
-        table_name: str,
+        table: str,
+        to_insert: list[dict[str, object]],
+        silent: bool = False,
+        or_ignore=False,
+    ) -> None: ...
+
+    @overload
+    async def insert(
+        self,
+        table: Type[GenericTableModel],
+        to_insert: list[dict[str, object]],
+        silent: bool = False,
+        or_ignore=False,
+    ) -> None: ...
+
+    async def insert(
+        self,
+        table: str | Type[GenericTableModel],
         to_insert: list[dict[str, object]],
         silent=False,
         or_ignore=False,
@@ -672,6 +711,11 @@ class AMysqlClientWriter(AMysqlClient):
                         f"{col=} is not in the first row to insert: col_of_first_row={cols}"
                     )
         cols = list(cols)
+
+        if isinstance(table, str):
+            table_name = table
+        else:
+            table_name = table.__tablename__
 
         query_parts = [f"INSERT {"IGNORE" if or_ignore else ""} INTO {table_name}"]
         query_parts.append(f"({",".join(cols)})")

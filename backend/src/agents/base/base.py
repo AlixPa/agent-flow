@@ -6,8 +6,13 @@ from typing import Any, Type
 from pydantic import BaseModel
 from pydantic_ai import Agent, agent, messages, models, settings, usage
 from src.clients import AMysqlClientWriter
+from src.config.default_db_settings import DefaultDbSettings
+from src.config.llms import CostPerInputToken, CostPerOutputToken
 from src.logger import get_logger
-from src.models.database import expense
+from src.models.database import ExpenseTable
+from src.workflow.graph.graph_state import GraphState
+
+from .config import BaseAgentConfig
 
 logger = get_logger()
 
@@ -17,10 +22,13 @@ class BaseAgent(ABC):
         self,
         model: str,
         system_prompt: str,
+        name: str = BaseAgentConfig.AGENT_BASE_NAME,
         instrument: bool = True,
         logger: Logger = logger,
         silent: bool = False,
     ) -> None:
+        self.model = model
+        self.name = name
         self.agent = Agent(
             instrument=instrument,
             model=model,
@@ -28,10 +36,12 @@ class BaseAgent(ABC):
         )
         self.logger = logger
         self.silent = silent
+        self.amysql_writter = AMysqlClientWriter(logger=self.logger)
 
     async def run(
         self,
         user_prompt: str | Sequence[messages.UserContent] | None,
+        state: GraphState | None,
         *,
         output_type: Type[BaseModel] | None = None,
         message_history: list[messages.ModelMessage] | None = None,
@@ -44,10 +54,8 @@ class BaseAgent(ABC):
     ) -> agent.AgentRunResult[Any]:
         if not self.silent:
             self.logger.debug(f"Called {self.__class__=} with {user_prompt=}")
-        ## TODO: Add config.default_db_settings with stuff like "default_user", "default_conversation", ...
-        ## TODO: Add in the src/__init__.py the init of db writting inside the db all the default stuff
-        ## TODO: Get the expense out of it, and record in the db. If not in state, then use default
-        return await self.agent.run(
+
+        response = await self.agent.run(
             user_prompt=user_prompt,
             output_type=output_type,
             message_history=message_history,
@@ -58,3 +66,39 @@ class BaseAgent(ABC):
             usage=usage,
             infer_name=infer_name,
         )
+
+        request_tokens = response.usage().request_tokens or 0
+        response_tokens = response.usage().response_tokens or 0
+
+        cost = 0.0
+        cost += float(request_tokens) * CostPerInputToken[self.model]
+        cost += float(response_tokens) * CostPerOutputToken[self.model]
+
+        if cost:
+            graph_id = state.graph_id if state else DefaultDbSettings.DEFAULT_ID
+            graph_id = graph_id or DefaultDbSettings.DEFAULT_ID
+
+            node_id = state.entry_node_id if state else DefaultDbSettings.DEFAULT_ID
+            node_id = node_id or DefaultDbSettings.DEFAULT_ID
+
+            conv_id = state.conversation_id if state else DefaultDbSettings.DEFAULT_ID
+            conv_id = conv_id or DefaultDbSettings.DEFAULT_ID
+
+            user_id = state.user_id if state else DefaultDbSettings.DEFAULT_ID
+            user_id = user_id or DefaultDbSettings.DEFAULT_ID
+
+            expense = ExpenseTable(
+                cost=cost,
+                source=self.name,
+                graphId=graph_id,
+                nodeId=node_id,
+                conversationId=conv_id,
+                userId=user_id,
+            )
+
+            self.logger.info(expense)
+            await self.amysql_writter.insert_one(
+                table=ExpenseTable, to_insert=expense.to_dict()
+            )
+
+        return response

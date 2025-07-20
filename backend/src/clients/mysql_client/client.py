@@ -518,9 +518,36 @@ class MysqlClientWriter(MysqlClient):
         self.connection.commit()
         self.connection.close()
 
+    def rollback(self) -> None:
+        """
+        Rollback the transaction and close the connection.
+        """
+        if not self.connection:
+            raise MySqlNoConnectionError("Cannot commit if transaction is closed.")
+        self.connection.rollback()
+        self.connection.close()
+
+    @overload
     def insert_one(
         self,
-        table_name: str,
+        table: str,
+        to_insert: dict[str, object],
+        silent: bool = False,
+        or_ignore=False,
+    ) -> None: ...
+
+    @overload
+    def insert_one(
+        self,
+        table: Type[GenericTableModel],
+        to_insert: dict[str, object],
+        silent: bool = False,
+        or_ignore=False,
+    ) -> None: ...
+
+    def insert_one(
+        self,
+        table: str | Type[GenericTableModel],
         to_insert: dict[str, object],
         silent=False,
         or_ignore=False,
@@ -549,15 +576,33 @@ class MysqlClientWriter(MysqlClient):
             If query is wrong
         """
         self.insert(
-            table_name=table_name,
+            table=table,
             to_insert=[to_insert],
             silent=silent,
             or_ignore=or_ignore,
         )
 
+    @overload
     def insert(
         self,
-        table_name: str,
+        table: str,
+        to_insert: list[dict[str, object]],
+        silent: bool = False,
+        or_ignore=False,
+    ) -> None: ...
+
+    @overload
+    def insert(
+        self,
+        table: Type[GenericTableModel],
+        to_insert: list[dict[str, object]],
+        silent: bool = False,
+        or_ignore=False,
+    ) -> None: ...
+
+    def insert(
+        self,
+        table: str | Type[GenericTableModel],
         to_insert: list[dict[str, object]],
         silent=False,
         or_ignore=False,
@@ -610,6 +655,11 @@ class MysqlClientWriter(MysqlClient):
                         f"{col=} is not in the first row to insert: col_of_first_row={cols}"
                     )
         cols = list(cols)
+
+        if isinstance(table, str):
+            table_name = table
+        else:
+            table_name = table.__tablename__
 
         query_parts = [f"INSERT {"IGNORE" if or_ignore else ""} INTO {table_name}"]
         query_parts.append(f"({",".join(cols)})")
