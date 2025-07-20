@@ -7,6 +7,6 @@ COPY frontend/bun.lock ./bun.lock
 
 RUN bun install
 
-EXPOSE 5173
+COPY frontend/ .
 
 CMD ["bun", "run", "dev", "--host"]
