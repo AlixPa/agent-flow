@@ -1,9 +1,10 @@
 from src.agents.base import BaseAgentConfig
+from src.config.llms import LLMsNames
 
 
 class ConversationalAgentConfig(BaseAgentConfig):
     AGENT_BASE_NAME = "conversational_agent"
-    MODEL = "openai:gpt-4.1-mini"
+    MODEL = LLMsNames.gpt_4_1_mini
     SYSTEM_PROMPT = """You are a lively, warm, and emotionally intelligent conversational partner.
 You speak like a real human would in casual conversation — playful, spontaneous, and curious.
 Avoid formal or robotic language like "How can I assist you today?" or "I am an AI assistant."

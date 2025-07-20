@@ -49,28 +49,23 @@ class GraphBuilder:
     def _get_agent(self, agent_node: AgentNodeTable) -> BaseAgent:
         agent_class = BuilderConfig.map_name_agent[agent_node.agentBaseName]
         return agent_class(
-            model=agent_node.customModel, system_prompt=agent_node.customPrompt
+            model=agent_node.customModel,
+            system_prompt=agent_node.customPrompt,
+            name=agent_node.agentBaseName,
         )
 
-    @overload
-    def _get_step(
-        self, node: NodeTable
-    ) -> Callable[[GraphState], Coroutine[Any, Any, GraphState]]: ...
-
-    @overload
-    def _get_step(
-        self, node: AgentNodeTable
-    ) -> Callable[[GraphState], Coroutine[Any, Any, GraphState]]: ...
-
-    def _get_step(
+    async def _get_step(
         self,
-        node: NodeTable | AgentNodeTable,
+        node: NodeTable,
     ) -> Callable[[GraphState], Coroutine[Any, Any, GraphState]]:
-        if isinstance(node, NodeTable):
-            return BuilderConfig.map_name_step_no_agent[node.type]()
+        if node.type == "agent":
+            agent_node = await self._load_agent_node(id=node.agentNodeId)
+            agent_model = self._get_agent(agent_node=agent_node)
+            return BuilderConfig.map_name_step_with_agent[agent_node.agentBaseName](
+                agent_model
+            )
         else:
-            agent = self._get_agent(agent_node=node)
-            return BuilderConfig.map_name_step_with_agent[node.agentBaseName](agent)
+            return BuilderConfig.map_name_step_no_agent[node.type]()
 
     async def get_graph(self, id: str) -> CompiledStateGraph:
         self.logger.info(f"Building graph of {id=}.")
@@ -79,11 +74,9 @@ class GraphBuilder:
         for node in await self._load_nodes(graph_id=id):
             if not self.silent:
                 self.logger.debug(f"adding to the graph, {node=}")
-            if node.type == "agent":
-                agent_node = await self._load_agent_node(id=node.agentNodeId)
-                builder.add_node(node.id, self._get_step(node=agent_node))
-            else:
-                builder.add_node(node.id, self._get_step(node=node))
+
+            step = await self._get_step(node=node)
+            builder.add_node(node.id, step)
 
             if node.isBaseEntryPoint:
                 builder.set_entry_point(node.id)

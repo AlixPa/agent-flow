@@ -30,7 +30,9 @@ def get_step_conversational_agent(agent: BaseAgent):
 
     async def step_agent_conversation(state: GraphState) -> GraphState:
         result = await agent.run(
-            user_prompt=state.last_user_message, message_history=state.message_history
+            user_prompt=state.last_user_message,
+            message_history=state.message_history,
+            state=state,
         )
         new_messages = result.new_messages()
         message_user = cast(messages.TextPart, new_messages[-2].parts[-1])
