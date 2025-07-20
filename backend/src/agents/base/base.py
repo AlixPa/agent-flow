@@ -5,7 +5,9 @@ from typing import Any, Type
 
 from pydantic import BaseModel
 from pydantic_ai import Agent, agent, messages, models, settings, usage
+from src.clients import AMysqlClientWriter
 from src.logger import get_logger
+from src.models.database import expense
 
 logger = get_logger()
 
@@ -42,6 +44,9 @@ class BaseAgent(ABC):
     ) -> agent.AgentRunResult[Any]:
         if not self.silent:
             self.logger.debug(f"Called {self.__class__=} with {user_prompt=}")
+        ## TODO: Add config.default_db_settings with stuff like "default_user", "default_conversation", ...
+        ## TODO: Add in the src/__init__.py the init of db writting inside the db all the default stuff
+        ## TODO: Get the expense out of it, and record in the db. If not in state, then use default
         return await self.agent.run(
             user_prompt=user_prompt,
             output_type=output_type,
