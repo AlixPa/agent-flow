@@ -59,5 +59,6 @@ try:
     )
 except Exception:
     mysql_client.rollback()
+    raise
 else:
     mysql_client.commit()
