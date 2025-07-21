@@ -66,7 +66,11 @@ class GraphBuilder:
         else:
             return BuilderConfig.map_name_step_no_agent[node.type]()
 
-    async def get_graph(self, id: str) -> CompiledStateGraph:
+    async def get_graph(
+        self,
+        id: str,
+        entry_node_id: str | None = None,
+    ) -> CompiledStateGraph:
         self.logger.info(f"Building graph of {id=}.")
         builder = StateGraph(GraphState)
 
@@ -77,7 +81,9 @@ class GraphBuilder:
             step = await self._get_step(node=node)
             builder.add_node(node.id, step)
 
-            if node.isBaseEntryPoint:
+            if (
+                entry_node_id is None and node.isBaseEntryPoint
+            ) or node.id == entry_node_id:
                 builder.set_entry_point(node.id)
 
         for edge in await self._load_edges(graph_id=id):
