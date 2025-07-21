@@ -19,20 +19,6 @@ Agent workflows are intended to be created and updated automatically via code ge
 
 # Runing the application
 
-## Frontend
-
-Docker coming soon~
-
-with bun 1.2.17
-```
-bun install
-bun run dev
-```
-
-## Backend
-
-### Simple run
-
 Before running the application, you need to have Docker Desktop installed:
 
 1. Download Docker Desktop from [https://www.docker.com/products/docker-desktop/](https://www.docker.com/products/docker-desktop/)
@@ -45,7 +31,32 @@ Copy paste `.env-example` to `.env` and fill it with your own environment requir
 
 ---
 
-Then to run the backend, use the following command:
+## Frontend
+
+To run the frontend, use the following command:
+
+```bash
+docker compose up -d --build frontend
+docker compose watch --no-up frontend
+```
+
+---
+
+To stop the application, use the following command:
+
+```bash
+docker compose down
+```
+
+And stop docker compose watch by Ctrl+C
+
+---
+
+## Backend
+
+### Simple run
+
+To run the backend, use the following command:
 
 ```bash
 docker compose up -d --build backend
