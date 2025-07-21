@@ -1,8 +1,44 @@
 from asgi_correlation_id.middleware import CorrelationIdMiddleware, is_valid_uuid4
 from fastapi import FastAPI
 from src.api import health_router
+from src.clients import MysqlClientWriter
+from src.config.default_db_settings import DefaultDbSettings
 from src.config.env_var import ENV
 from src.config.runtime import ServiceEnv
+from src.models.database import ConversationTable, GraphTable, NodeTable, UserTable
+
+## Init db with default values
+mysql_client = MysqlClientWriter()
+mysql_client.start_transaction()
+try:
+    mysql_client.insert_one(
+        table=UserTable,
+        to_insert=DefaultDbSettings.USER.to_dict(),
+        or_ignore=True,
+    )
+
+    mysql_client.insert_one(
+        table=GraphTable,
+        to_insert=DefaultDbSettings.GRAPH.to_dict(),
+        or_ignore=True,
+    )
+
+    mysql_client.insert_one(
+        table=ConversationTable,
+        to_insert=DefaultDbSettings.CONVERSATION.to_dict(),
+        or_ignore=True,
+    )
+
+    mysql_client.insert_one(
+        table=NodeTable,
+        to_insert=DefaultDbSettings.NODE.to_dict(),
+        or_ignore=True,
+    )
+except Exception:
+    mysql_client.rollback()
+    raise
+else:
+    mysql_client.commit()
 
 app = FastAPI()
 

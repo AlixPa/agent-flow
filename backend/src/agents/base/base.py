@@ -22,7 +22,7 @@ class BaseAgent(ABC):
         self,
         model: str,
         system_prompt: str,
-        name: str = BaseAgentConfig.AGENT_BASE_NAME,
+        name: str,
         instrument: bool = True,
         logger: Logger = logger,
         silent: bool = False,
@@ -40,8 +40,8 @@ class BaseAgent(ABC):
 
     async def run(
         self,
-        user_prompt: str | Sequence[messages.UserContent] | None,
-        state: GraphState | None,
+        user_prompt: str,
+        state: GraphState,
         *,
         output_type: Type[BaseModel] | None = None,
         message_history: list[messages.ModelMessage] | None = None,
@@ -75,25 +75,13 @@ class BaseAgent(ABC):
         cost += float(response_tokens) * CostPerOutputToken[self.model]
 
         if cost:
-            graph_id = state.graph_id if state else DefaultDbSettings.DEFAULT_ID
-            graph_id = graph_id or DefaultDbSettings.DEFAULT_ID
-
-            node_id = state.entry_node_id if state else DefaultDbSettings.DEFAULT_ID
-            node_id = node_id or DefaultDbSettings.DEFAULT_ID
-
-            conv_id = state.conversation_id if state else DefaultDbSettings.DEFAULT_ID
-            conv_id = conv_id or DefaultDbSettings.DEFAULT_ID
-
-            user_id = state.user_id if state else DefaultDbSettings.DEFAULT_ID
-            user_id = user_id or DefaultDbSettings.DEFAULT_ID
-
             expense = ExpenseTable(
                 cost=cost,
                 source=self.name,
-                graphId=graph_id,
-                nodeId=node_id,
-                conversationId=conv_id,
-                userId=user_id,
+                graphId=state.graph.id,
+                nodeId=state.entry_node.id,
+                conversationId=state.conversation.id,
+                userId=state.user.id,
             )
 
             self.logger.info(expense)

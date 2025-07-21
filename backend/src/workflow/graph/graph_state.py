@@ -1,13 +1,20 @@
 from pydantic import BaseModel, Field
-from pydantic_ai import messages
+from src.config.default_db_settings import DefaultDbSettings
+from src.models.database import ConversationTable, GraphTable, NodeTable, UserTable
+
+
+class Message(BaseModel):
+    def __str__(self) -> str:
+        return f"**{self.speaker}**: {self.text}"
+
+    speaker: str = Field(default="")
+    text: str = Field(default="")
 
 
 class GraphState(BaseModel):
-    message_history: list[messages.ModelMessage] = Field(default=list())
-    last_user_message: str = Field(default="")
-    last_ai_message: str = Field(default="")
+    message_history: list[Message] = Field(default=list())
 
-    graph_id: str | None = Field(default=None)
-    conversation_id: str | None = Field(default=None)
-    entry_node_id: str | None = Field(default=None)
-    user_id: str | None = Field(default=None)
+    graph: GraphTable = Field(default=DefaultDbSettings.GRAPH)
+    conversation: ConversationTable = Field(default=DefaultDbSettings.CONVERSATION)
+    entry_node: NodeTable = Field(default=DefaultDbSettings.NODE)
+    user: UserTable = Field(default=DefaultDbSettings.USER)
