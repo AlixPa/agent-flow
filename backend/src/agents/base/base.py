@@ -22,7 +22,7 @@ class BaseAgent(ABC):
         self,
         model: str,
         system_prompt: str,
-        name: str = BaseAgentConfig.AGENT_BASE_NAME,
+        name: str,
         instrument: bool = True,
         logger: Logger = logger,
         silent: bool = False,
