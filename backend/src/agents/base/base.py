@@ -75,33 +75,13 @@ class BaseAgent(ABC):
         cost += float(response_tokens) * CostPerOutputToken[self.model]
 
         if cost:
-            graph_id = state.graph.id if state.graph else DefaultDbSettings.DEFAULT_ID
-            graph_id = graph_id or DefaultDbSettings.DEFAULT_ID
-
-            node_id = (
-                state.entry_node.id
-                if state.entry_node
-                else DefaultDbSettings.DEFAULT_ID
-            )
-            node_id = node_id or DefaultDbSettings.DEFAULT_ID
-
-            conv_id = (
-                state.conversation.id
-                if state.conversation
-                else DefaultDbSettings.DEFAULT_ID
-            )
-            conv_id = conv_id or DefaultDbSettings.DEFAULT_ID
-
-            user_id = state.user.id if state.user else DefaultDbSettings.DEFAULT_ID
-            user_id = user_id or DefaultDbSettings.DEFAULT_ID
-
             expense = ExpenseTable(
                 cost=cost,
                 source=self.name,
-                graphId=graph_id,
-                nodeId=node_id,
-                conversationId=conv_id,
-                userId=user_id,
+                graphId=state.graph.id,
+                nodeId=state.entry_node.id,
+                conversationId=state.conversation.id,
+                userId=state.user.id,
             )
 
             self.logger.info(expense)
