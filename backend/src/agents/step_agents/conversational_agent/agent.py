@@ -1,10 +1,5 @@
-from collections.abc import Sequence
-from typing import Any, Type
-
-from pydantic import BaseModel
-from pydantic_ai import agent, messages, models, settings, usage
 from src.agents.base import BaseAgent
-from src.workflow.graph.graph_state import GraphState, Message
+from src.workflow.graph.state import GraphState, Message
 
 from .config import ConversationalAgentConfig
 

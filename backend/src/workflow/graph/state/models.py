@@ -11,10 +11,14 @@ class Message(BaseModel):
     text: str = Field(default="")
 
 
-class GraphState(BaseModel):
-    message_history: list[Message] = Field(default=list())
+class MessageHistory(BaseModel):
+    messages: list[Message] = Field(default=list())
 
-    graph: GraphTable = Field(default=DefaultDbSettings.GRAPH)
+
+class GraphState(BaseModel):
+    message_history: MessageHistory = Field(default=MessageHistory())
+
     conversation: ConversationTable = Field(default=DefaultDbSettings.CONVERSATION)
     entry_node: NodeTable = Field(default=DefaultDbSettings.NODE)
+    graph: GraphTable = Field(default=DefaultDbSettings.GRAPH)
     user: UserTable = Field(default=DefaultDbSettings.USER)

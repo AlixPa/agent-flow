@@ -10,7 +10,7 @@ from src.config.default_db_settings import DefaultDbSettings
 from src.config.llms import CostPerInputToken, CostPerOutputToken
 from src.logger import get_logger
 from src.models.database import ExpenseTable
-from src.workflow.graph.graph_state import GraphState
+from src.workflow.graph.state import GraphState
 
 from .config import BaseAgentConfig
 
