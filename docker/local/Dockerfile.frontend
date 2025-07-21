@@ -9,4 +9,4 @@ RUN bun install
 
 COPY frontend/ .
 
-CMD ["bun", "run", "dev", "--host"]
+CMD ["sleep", "infinity"]

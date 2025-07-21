@@ -82,4 +82,4 @@ services:
            - node_modules/
         - action: rebuild
           path: ./frontend/package.json
-  
+    entrypoint: ["bun", "run", "dev", "--host"]
