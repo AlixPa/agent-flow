@@ -40,7 +40,7 @@ class BaseAgent(ABC):
 
     async def run(
         self,
-        user_prompt: str | Sequence[messages.UserContent] | None,
+        user_prompt: str,
         state: GraphState,
         *,
         output_type: Type[BaseModel] | None = None,
