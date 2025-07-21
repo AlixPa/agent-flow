@@ -4,6 +4,7 @@ from .conversation import Conversation as ConversationTable
 from .edge import Edge as EdgeTable
 from .expense import Expense as ExpenseTable
 from .graph import Graph as GraphTable
+from .graph_state import GraphState as GraphStateTable
 from .node import Node as NodeTable
 from .user import User as UserTable
 
@@ -15,6 +16,7 @@ __all__ = [
     "EdgeTable",
     "ExpenseTable",
     "GraphTable",
+    "GraphStateTable",
     "NodeTable",
     "UserTable",
 ]

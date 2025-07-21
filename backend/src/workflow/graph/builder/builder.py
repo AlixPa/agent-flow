@@ -7,9 +7,9 @@ from src.agents.base import BaseAgent
 from src.clients import AMysqlClientReader
 from src.logger import get_logger
 from src.models.database import AgentNodeTable, EdgeTable, NodeTable
+from src.workflow.graph.state import GraphState
 
-from .builder_config import BuilderConfig
-from .graph_state import GraphState
+from .config import BuilderConfig
 
 logger = get_logger()
 
