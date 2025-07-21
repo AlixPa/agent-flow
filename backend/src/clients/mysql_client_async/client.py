@@ -2,7 +2,7 @@
 import traceback
 from abc import ABC, abstractmethod
 from logging import Logger
-from typing import Type, TypeVar, overload
+from typing import Type, TypeVar, cast, overload
 from uuid import uuid4
 
 from sqlalchemy import CursorResult, text
@@ -492,14 +492,30 @@ class AMysqlClient(ABC):
             )
         return res_mysql[0]
 
+    @overload
     async def id_exists(
         self,
-        table_name: str,
+        table: str,
+        id: str,
+        silent: bool = False,
+    ) -> bool: ...
+
+    @overload
+    async def id_exists(
+        self,
+        table: Type[GenericTableModel],
+        id: str,
+        silent: bool = False,
+    ) -> bool: ...
+
+    async def id_exists(
+        self,
+        table: str | Type[GenericTableModel],
         id: str,
         silent: bool = False,
     ) -> bool:
         try:
-            await self.select_by_id(table=table_name, id=id, silent=silent)
+            await self.select_by_id(table=table, id=id, silent=silent)
             return True
         except AMySqlIdNotFoundError:
             return False
@@ -596,7 +612,7 @@ class AMysqlClientWriter(AMysqlClient):
     async def insert_one(
         self,
         table: Type[GenericTableModel],
-        to_insert: dict[str, object],
+        to_insert: GenericTableModel,
         silent: bool = False,
         or_ignore=False,
     ) -> None: ...
@@ -604,7 +620,7 @@ class AMysqlClientWriter(AMysqlClient):
     async def insert_one(
         self,
         table: str | Type[GenericTableModel],
-        to_insert: dict[str, object],
+        to_insert: dict[str, object] | GenericTableModel,
         silent=False,
         or_ignore=False,
     ) -> None:
@@ -631,12 +647,23 @@ class AMysqlClientWriter(AMysqlClient):
         AMySqlWrongQueryError
             If query is wrong
         """
-        return await self.insert(
-            table=table,
-            to_insert=[to_insert],
-            silent=silent,
-            or_ignore=or_ignore,
-        )
+        # For typing
+        if isinstance(table, str):
+            to_insert = cast(dict[str, object], to_insert)
+            return await self.insert(
+                table=table,
+                to_insert=[to_insert],
+                silent=silent,
+                or_ignore=or_ignore,
+            )
+        else:
+            to_insert = cast(GenericTableModel, to_insert)
+            return await self.insert(
+                table=table,
+                to_insert=[to_insert],
+                silent=silent,
+                or_ignore=or_ignore,
+            )
 
     @overload
     async def insert(
@@ -651,7 +678,7 @@ class AMysqlClientWriter(AMysqlClient):
     async def insert(
         self,
         table: Type[GenericTableModel],
-        to_insert: list[dict[str, object]],
+        to_insert: list[GenericTableModel],
         silent: bool = False,
         or_ignore=False,
     ) -> None: ...
@@ -659,7 +686,7 @@ class AMysqlClientWriter(AMysqlClient):
     async def insert(
         self,
         table: str | Type[GenericTableModel],
-        to_insert: list[dict[str, object]],
+        to_insert: list[dict[str, object]] | list[GenericTableModel],
         silent=False,
         or_ignore=False,
     ) -> None:
@@ -688,18 +715,24 @@ class AMysqlClientWriter(AMysqlClient):
         AMySqlColumnInconsistencyError
             If multiple rows have individually different columns
         """
-        for row in to_insert:
+        if isinstance(to_insert, str):
+            to_insert_dict = cast(list[dict[str, object]], to_insert)
+        else:
+            to_insert = cast(list[GenericTableModel], to_insert)
+            to_insert_dict = [e.to_dict() for e in to_insert]
+
+        for row in to_insert_dict:
             if "createdAt" in row:
                 del row["createdAt"]
             if "updatedAt" in row:
                 del row["updatedAt"]
 
-        to_insert = [row for row in to_insert if row]
-        if not to_insert:
+        to_insert_dict = [row for row in to_insert_dict if row]
+        if not to_insert_dict:
             raise AMySqlNoValueInsertionError()
 
-        cols = set(to_insert[0].keys())
-        for row in to_insert:
+        cols = set(to_insert_dict[0].keys())
+        for row in to_insert_dict:
             for col in cols:
                 if not col in row:
                     raise AMySqlColumnInconsistencyError(
@@ -723,7 +756,7 @@ class AMysqlClientWriter(AMysqlClient):
 
         insert_part = list()
         args: dict[str, object] = dict()
-        for row in to_insert:
+        for row in to_insert_dict:
             values = [row[col] for col in cols]
             uids_sql = self._update_args_get_uids_sql(args=args, ls_val=values)
             insert_part.append(f"({",".join(uids_sql)})")
@@ -737,9 +770,45 @@ class AMysqlClientWriter(AMysqlClient):
             silent=silent,
         )
 
+    @overload
     async def update(
         self,
-        table_name: str,
+        table: str,
+        update_col_col: dict[str, str] = dict(),
+        update_col_value: dict[str, object] = dict(),
+        cond_null: list[str] = list(),
+        cond_not_null: list[str] = list(),
+        cond_in: dict[str, list] = dict(),
+        cond_equal: dict[str, object] = dict(),
+        cond_non_equal: dict[str, object] = dict(),
+        cond_less_or_eq: dict[str, object] = dict(),
+        cond_greater_or_eq: dict[str, object] = dict(),
+        cond_less: dict[str, object] = dict(),
+        cond_greater: dict[str, object] = dict(),
+        silent: bool = False,
+    ) -> None: ...
+
+    @overload
+    async def update(
+        self,
+        table: Type[GenericTableModel],
+        update_col_col: dict[str, str] = dict(),
+        update_col_value: dict[str, object] = dict(),
+        cond_null: list[str] = list(),
+        cond_not_null: list[str] = list(),
+        cond_in: dict[str, list] = dict(),
+        cond_equal: dict[str, object] = dict(),
+        cond_non_equal: dict[str, object] = dict(),
+        cond_less_or_eq: dict[str, object] = dict(),
+        cond_greater_or_eq: dict[str, object] = dict(),
+        cond_less: dict[str, object] = dict(),
+        cond_greater: dict[str, object] = dict(),
+        silent: bool = False,
+    ) -> None: ...
+
+    async def update(
+        self,
+        table: str | Type[GenericTableModel],
         update_col_col: dict[str, str] = dict(),
         update_col_value: dict[str, object] = dict(),
         cond_null: list[str] = list(),
@@ -794,6 +863,8 @@ class AMysqlClientWriter(AMysqlClient):
         AMySqlWrongQueryError
             If query is wrong
         """
+        table_name = table if isinstance(table, str) else table.__tablename__
+
         if "updatedAt" in update_col_col:
             del update_col_col["updatedAt"]
         if "updatedAt" in update_col_value:
@@ -852,9 +923,29 @@ class AMysqlClientWriter(AMysqlClient):
 
         await self.execute(query=" ".join(query_parts), args=args, silent=silent)
 
+    @overload
     async def update_by_id(
         self,
-        table_name: str,
+        table: str,
+        id: str,
+        update_col_col: dict[str, str] = dict(),
+        update_col_value: dict[str, object] = dict(),
+        silent=False,
+    ) -> None: ...
+
+    @overload
+    async def update_by_id(
+        self,
+        table: Type[GenericTableModel],
+        id: str,
+        update_col_col: dict[str, str] = dict(),
+        update_col_value: dict[str, object] = dict(),
+        silent=False,
+    ) -> None: ...
+
+    async def update_by_id(
+        self,
+        table: str | Type[GenericTableModel],
         id: str,
         update_col_col: dict[str, str] = dict(),
         update_col_value: dict[str, object] = dict(),
@@ -887,12 +978,12 @@ class AMysqlClientWriter(AMysqlClient):
         AMySqlIdNotFoundError
             If id not found in table
         """
-        if not self.id_exists(table_name=table_name, id=id, silent=True):
+        if not self.id_exists(table=table, id=id, silent=True):
             raise AMySqlIdNotFoundError(
-                f"{id=} not found during update in table {table_name}"
+                f"{id=} not found during update in table {table if isinstance(table, str) else table.__tablename__}"
             )
         await self.update(
-            table_name=table_name,
+            table=table,
             update_col_col=update_col_col,
             update_col_value=update_col_value,
             cond_equal={"id": id},

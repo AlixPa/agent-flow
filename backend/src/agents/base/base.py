@@ -85,8 +85,6 @@ class BaseAgent(ABC):
             )
 
             self.logger.info(expense)
-            await self.amysql_writter.insert_one(
-                table=ExpenseTable, to_insert=expense.to_dict()
-            )
+            await self.amysql_writter.insert_one(table=ExpenseTable, to_insert=expense)
 
         return response

@@ -13,25 +13,25 @@ mysql_client.start_transaction()
 try:
     mysql_client.insert_one(
         table=UserTable,
-        to_insert=DefaultDbSettings.USER.to_dict(),
+        to_insert=DefaultDbSettings.USER,
         or_ignore=True,
     )
 
     mysql_client.insert_one(
         table=GraphTable,
-        to_insert=DefaultDbSettings.GRAPH.to_dict(),
+        to_insert=DefaultDbSettings.GRAPH,
         or_ignore=True,
     )
 
     mysql_client.insert_one(
         table=ConversationTable,
-        to_insert=DefaultDbSettings.CONVERSATION.to_dict(),
+        to_insert=DefaultDbSettings.CONVERSATION,
         or_ignore=True,
     )
 
     mysql_client.insert_one(
         table=NodeTable,
-        to_insert=DefaultDbSettings.NODE.to_dict(),
+        to_insert=DefaultDbSettings.NODE,
         or_ignore=True,
     )
 except Exception:
