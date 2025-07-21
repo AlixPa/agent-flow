@@ -26,24 +26,35 @@ class StateManager:
         self.logger = logger
         self.mysql_reader = AMysqlClientReader(logger=logger)
         self.mysql_writer = AMysqlClientWriter(logger=logger)
+        self.silent = silent
 
     async def load_state(self, id: str) -> GraphState:
         graph_state_db = await self.mysql_reader.select_by_id(
-            table=GraphStateTable, id=id
+            table=GraphStateTable,
+            id=id,
+            silent=self.silent,
         )
         message_history = MessageHistory(**json.loads(graph_state_db.message_history))
 
         conversation_task = self.mysql_reader.select_by_id(
-            table=ConversationTable, id=graph_state_db.conversationId
+            table=ConversationTable,
+            id=graph_state_db.conversationId,
+            silent=self.silent,
         )
         graph_task = self.mysql_reader.select_by_id(
-            table=GraphTable, id=graph_state_db.graphId
+            table=GraphTable,
+            id=graph_state_db.graphId,
+            silent=self.silent,
         )
         entry_node_task = self.mysql_reader.select_by_id(
-            table=NodeTable, id=graph_state_db.entryNodeId
+            table=NodeTable,
+            id=graph_state_db.entryNodeId,
+            silent=self.silent,
         )
         user_task = self.mysql_reader.select_by_id(
-            table=UserTable, id=graph_state_db.userId
+            table=UserTable,
+            id=graph_state_db.userId,
+            silent=self.silent,
         )
         conversation, graph, entry_node, user = await asyncio.gather(
             conversation_task,
@@ -68,6 +79,8 @@ class StateManager:
             userId=state.user.id,
         )
         await self.mysql_writer.insert_one(
-            table=GraphStateTable, to_insert=graph_state_db
+            table=GraphStateTable,
+            to_insert=graph_state_db,
+            silent=self.silent,
         )
         return graph_state_db.id
