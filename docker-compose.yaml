@@ -66,3 +66,20 @@ services:
       ]
     volumes:
       - ./backend/src:/backend/src
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/local/Dockerfile.frontend
+    ports:
+      - "${FRONTEND_PORT}:${FRONTEND_PORT}"
+    develop:
+      watch:
+        - action: sync
+          path: ./frontend
+          target: /frontend
+          ignore: 
+           - node_modules/
+        - action: rebuild
+          path: ./frontend/package.json
+    entrypoint: ["bun", "run", "dev", "--host"]
