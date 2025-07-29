@@ -15,7 +15,7 @@ class Conversation(BaseTableModel):
         nullable=False,
         index=True,
     )
-    userId: Mapped[str] = mapped_column(
+    userId: Mapped[str | None] = mapped_column(
         VARCHAR(255),
         ForeignKey(User.id),
         nullable=True,

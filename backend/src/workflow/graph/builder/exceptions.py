@@ -1,0 +1,2 @@
+class NoAgentNodeId(Exception):
+    pass

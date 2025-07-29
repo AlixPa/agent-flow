@@ -1,13 +1,10 @@
-## NOTE: This client is async and should not be used with scripts, but with FAST API
+## NOTE: This client is sync and should not be used with FAST API, but with scripts
 import traceback
 from abc import ABC, abstractmethod
 from logging import Logger
 from typing import Type, TypeVar, cast, overload
-from uuid import uuid4
 
-from sqlalchemy import CursorResult, text
-from sqlalchemy.exc import ProgrammingError
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+import pymysql.cursors
 from src.config.env_var import (
     MYSQL_DATABASE,
     MYSQL_HOST,
@@ -19,56 +16,23 @@ from src.logger import get_logger
 from src.models.database import BaseTableModel
 
 from .exceptions import (
-    AMySqlColumnInconsistencyError,
-    AMySqlDuplicateColumnUpdateError,
-    AMySqlIdNotFoundError,
-    AMySqlNoEngineError,
-    AMySqlNoUpdateValuesError,
-    AMySqlNoValueInsertionError,
-    AMySqlWrongQueryError,
+    MySqlColumnInconsistencyError,
+    MySqlDuplicateColumnUpdateError,
+    MySqlIdNotFoundError,
+    MySqlNoConnectionError,
+    MySqlNoUpdateValuesError,
+    MySqlNoValueInsertionError,
+    MySqlWrongQueryError,
 )
-from .models import CondReturn
 
 base_logger = get_logger()
-engine_reader = None
-engine_writer = None
-
-
-# TODO: Isolated credentials for reading
-def _get_engine_reader() -> AsyncEngine:
-    global engine_reader
-    if engine_reader is None:
-        engine_reader = create_async_engine(
-            f"mysql+asyncmy://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}",
-            pool_size=5,
-            max_overflow=5,
-            pool_timeout=60,
-            pool_recycle=1800,
-        )
-    return engine_reader
-
-
-# TODO: Isolated credentials for writing
-def _get_engine_writer() -> AsyncEngine:
-    global engine_writer
-    if engine_writer is None:
-        engine_writer = create_async_engine(
-            f"mysql+asyncmy://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}",
-            pool_size=5,
-            max_overflow=5,
-            pool_timeout=60,
-            pool_recycle=1800,
-        )
-    return engine_writer
-
-
 GenericTableModel = TypeVar("GenericTableModel", bound=BaseTableModel)
 
 
-class AMysqlClient(ABC):
+class MysqlClient(ABC):
     def __init__(self, logger: Logger | None = None) -> None:
-        self.logger = logger if logger else base_logger
-        self.engine: AsyncEngine | None = None
+        self.logger = logger or base_logger
+        self.connection: pymysql.Connection[pymysql.cursors.DictCursor] | None = None
 
     @abstractmethod
     def _connect(self) -> None:
@@ -77,22 +41,10 @@ class AMysqlClient(ABC):
         """
         pass
 
-    def _logging(self, query: str, args: dict | None, result: CursorResult) -> None:
-        if args:
-            for key, value in args.items():
-                quoted = f"'{value}'" if isinstance(value, str) else str(value)
-                query = query.replace(f":{key}", quoted)
-        self.logger.debug(f"MysqlClient executed: {query} {result.rowcount=}")
-
-    def _get_uuid4(self) -> str:
-        return "id_" + str(uuid4()).replace("-", "_")
-
-    def _update_args_get_uids_sql(
-        self, args: dict[str, object], ls_val: list[object]
-    ) -> list[str]:
-        uids = [self._get_uuid4() for _ in range(len(ls_val))]
-        args.update({uid: value for uid, value in zip(uids, ls_val)})
-        return [f":{uid}" for uid in uids]
+    def _logging(self, cursor) -> None:
+        self.logger.debug(
+            f"MysqlClient executed: {str(cursor._executed)} {cursor.rowcount=}"
+        )
 
     def _generate_cond(
         self,
@@ -105,7 +57,7 @@ class AMysqlClient(ABC):
         cond_greater_or_eq: dict[str, object] = dict(),
         cond_less: dict[str, object] = dict(),
         cond_greater: dict[str, object] = dict(),
-    ) -> CondReturn:
+    ) -> tuple[str, tuple]:
         """
         Function that generates the condition as well as the args for any query
 
@@ -117,7 +69,7 @@ class AMysqlClient(ABC):
             The args parameter to give to MysqlClient.execute
         """
         conds = ["WHERE 1 = 1"]
-        args: dict[str, object] = dict()
+        args = list()
 
         for col in cond_null:
             conds.append(f"AND {col} IS NULL")
@@ -128,31 +80,40 @@ class AMysqlClient(ABC):
         for col, ls_val in cond_in.items():
             if len(ls_val) == 0:
                 continue
-            uids_sql = self._update_args_get_uids_sql(args=args, ls_val=ls_val)
-            conds.append(f"AND {col} IN (" + ",".join(uids_sql) + ")")
+            conds.append(f"AND {col} IN (" + ",".join(["%s"] * len(ls_val)) + ")")
+            args.extend(ls_val)
 
-        symbols_colvalues = {
-            "=": cond_equal,
-            "<>": cond_non_equal,
-            "<=": cond_less_or_eq,
-            ">=": cond_greater_or_eq,
-            "<": cond_less,
-            ">": cond_greater,
-        }
+        for col, val in cond_equal.items():
+            conds.append(f"AND {col} = %s")
+            args.append(val)
 
-        for symbol, colvalues in symbols_colvalues.items():
-            for col, val in colvalues.items():
-                uid = self._get_uuid4()
-                conds.append(f"AND {col} {symbol} :{uid}")
-                args[uid] = val
+        for col, val in cond_non_equal.items():
+            conds.append(f"AND {col} <> %s")
+            args.append(val)
 
-        return CondReturn(condition=" ".join(conds), args=args)
+        for col, val in cond_less_or_eq.items():
+            conds.append(f"AND {col} <= %s")
+            args.append(val)
 
-    async def execute(
-        self, query: str, args: dict[str, object] | None = None, silent=False
-    ) -> list[dict[str, object]]:
+        for col, val in cond_greater_or_eq.items():
+            conds.append(f"AND {col} >= %s")
+            args.append(val)
+
+        for col, val in cond_less.items():
+            conds.append(f"AND {col} < %s")
+            args.append(val)
+
+        for col, val in cond_greater.items():
+            conds.append(f"AND {col} > %s")
+            args.append(val)
+
+        return " ".join(conds), tuple(args)
+
+    def execute(
+        self, query: str, args: tuple | dict | None = None
+    ) -> tuple[dict[str, object], ...]:
         """
-        Execute a SQL query and return the results, without commiting (read only).
+        Execute a SQL query and return the results.
 
         Parameters
         ----------
@@ -160,40 +121,36 @@ class AMysqlClient(ABC):
             SQL query to execute
         args : tuple | dict | None, optional
             Parameters to pass to the query, by default None
-        silent : bool, optional
-            If True, suppress logging of the query execution, by default False
 
         Returns
         -------
-        list
+        tuple
             Results of the query execution
 
         Raises
         ------
-        AMySqlWrongQueryError
+        NoConnectionError
+            If no database connection exists
+        MySqlWrongQueryError
             If query is wrong
-        AMySqlNoEngineError
+        MySqlNoConnectionError
             If no database connection exists
         """
-        if not self.engine:
-            raise AMySqlNoEngineError("Could not execute query, no engine yet.")
+        if not self.connection:
+            raise MySqlNoConnectionError("Could not execute query, no connection yet.")
+        with self.connection.cursor() as cursor:
+            try:
+                cursor.execute(query=query, args=args)
+                res = cursor.fetchall()
+            except pymysql.err.ProgrammingError as e:
+                self.logger.warning(
+                    f"error while executing query, {traceback.format_exc()}"
+                )
+                raise MySqlWrongQueryError(f"{traceback.format_exc()}")
+            self._logging(cursor)
+        return res
 
-        try:
-            async with self.engine.connect() as conn:
-                result_alchemy = await conn.execute(text(query), args or {})
-                rows = result_alchemy.fetchall()
-        except ProgrammingError:
-            self.logger.warning(
-                f"error while executing query, {traceback.format_exc()}"
-            )
-            raise AMySqlWrongQueryError(f"{traceback.format_exc()}")
-
-        if not silent:
-            self._logging(query=query, args=args, result=result_alchemy)
-
-        return [dict(r._mapping) for r in rows]
-
-    async def count(
+    def count(
         self,
         table_name: str,
         select_col: list[str] = list(),
@@ -206,7 +163,6 @@ class AMysqlClient(ABC):
         cond_greater_or_eq: dict[str, object] = dict(),
         cond_less: dict[str, object] = dict(),
         cond_greater: dict[str, object] = dict(),
-        silent: bool = False,
     ) -> int | None:
         """
         Execute a SELECT COUNT(...) query with various conditions.
@@ -235,8 +191,6 @@ class AMysqlClient(ABC):
             Column values that must be less than given value
         cond_g : dict[str, object], optional
             Column values that must be greater than given value
-        silent : bool, optional
-            If True, suppress logging of the query execution, by default False
 
         Returns
         -------
@@ -247,15 +201,15 @@ class AMysqlClient(ABC):
 
         Raises
         ------
-        AMySqlWrongQueryError
+        MySqlWrongQueryError
             If query is wrong
-        AMySqlNoEngineError
+        MySqlNoConnectionError
             If no database connection exists
         """
         query_parts = [
             f"SELECT COUNT({', '.join(select_col) if select_col else '*'}) AS ct FROM {table_name}"
         ]
-        cond_ret = self._generate_cond(
+        cond, args = self._generate_cond(
             cond_equal=cond_equal,
             cond_greater=cond_greater,
             cond_greater_or_eq=cond_greater_or_eq,
@@ -266,21 +220,18 @@ class AMysqlClient(ABC):
             cond_not_null=cond_not_null,
             cond_null=cond_null,
         )
-        cond, args = cond_ret.condition, cond_ret.args
 
         query_parts.append(cond)
         query_parts.append(";")
 
-        res_mysql = await self.execute(
-            query=" ".join(query_parts), args=args, silent=silent
-        )
+        res_mysql = self.execute(query=" ".join(query_parts), args=args)
         if not res_mysql:
             return None
         res = res_mysql[0].get("ct", None)
         return int(str(res)) if res else None
 
     @overload
-    async def select(
+    def select(
         self,
         table: str,
         select_col: list[str] = list(),
@@ -297,11 +248,10 @@ class AMysqlClient(ABC):
         ascending_order: bool = True,
         limit: int = 0,
         offset: int = 0,
-        silent: bool = False,
-    ) -> list[dict[str, object]]: ...
+    ) -> tuple[dict[str, object], ...]: ...
 
     @overload
-    async def select(
+    def select(
         self,
         table: Type[GenericTableModel],
         select_col: list[str] = list(),
@@ -318,10 +268,9 @@ class AMysqlClient(ABC):
         ascending_order: bool = True,
         limit: int = 0,
         offset: int = 0,
-        silent: bool = False,
-    ) -> list[GenericTableModel]: ...
+    ) -> tuple[GenericTableModel, ...]: ...
 
-    async def select(
+    def select(
         self,
         table: str | Type[GenericTableModel],
         select_col: list[str] = list(),
@@ -338,8 +287,7 @@ class AMysqlClient(ABC):
         ascending_order: bool = True,
         limit: int = 0,
         offset: int = 0,
-        silent: bool = False,
-    ) -> list[dict[str, object]] | list[GenericTableModel]:
+    ) -> tuple[dict[str, object], ...] | tuple[GenericTableModel, ...]:
         """
         Execute a SELECT query with various conditions.
 
@@ -367,8 +315,6 @@ class AMysqlClient(ABC):
             Column values that must be less than given value
         cond_g : dict[str, object], optional
             Column values that must be greater than given value
-        silent : bool, optional
-            If True, suppress logging of the query execution, by default False
         limit : int, optional
             Maximum number of rows to return, 0 means all, by default 0
         offset : int, optional
@@ -381,9 +327,9 @@ class AMysqlClient(ABC):
 
         Raises
         ------
-        AMySqlNoEngineError
+        MySqlNoConnectionError
             If no database connection exists
-        AMySqlWrongQueryError
+        MySqlWrongQueryError
             If query is wrong
         """
         if isinstance(table, str):
@@ -394,7 +340,7 @@ class AMysqlClient(ABC):
             query_parts = [
                 f"SELECT {', '.join(select_col) if select_col else '*'} FROM {table.__tablename__}"
             ]
-        cond_ret = self._generate_cond(
+        cond, args = self._generate_cond(
             cond_equal=cond_equal,
             cond_greater=cond_greater,
             cond_greater_or_eq=cond_greater_or_eq,
@@ -405,52 +351,42 @@ class AMysqlClient(ABC):
             cond_not_null=cond_not_null,
             cond_null=cond_null,
         )
-        cond, args = cond_ret.condition, cond_ret.args
-
         query_parts.append(cond)
-
         if order_by:
             query_parts.append(
                 f"ORDER BY {order_by} {'ASC' if ascending_order else 'DESC'}"
             )
-
         if limit > 0:
             query_parts.append(f"LIMIT {limit}")
             query_parts.append(f"OFFSET {offset}")
         query_parts.append(";")
-        res_mysql = await self.execute(
-            query=" ".join(query_parts), args=args, silent=silent
-        )
-
+        res_mysql = self.execute(query=" ".join(query_parts), args=args)
         if isinstance(table, str):
             return res_mysql
         else:
-            return [table(**r) for r in res_mysql]  # type: ignore
+            return tuple(table(**r) for r in res_mysql)  # type: ignore
 
     @overload
-    async def select_by_id(
+    def select_by_id(
         self,
         table: str,
         id: str,
         select_col: list[str] = list(),
-        silent: bool = False,
     ) -> dict[str, object]: ...
 
     @overload
-    async def select_by_id(
+    def select_by_id(
         self,
         table: Type[GenericTableModel],
         id: str,
         select_col: list[str] = list(),
-        silent: bool = False,
     ) -> GenericTableModel: ...
 
-    async def select_by_id(
+    def select_by_id(
         self,
         table: str | Type[GenericTableModel],
         id: str,
         select_col: list[str] = list(),
-        silent: bool = False,
     ) -> dict[str, object] | GenericTableModel:
         """
         Select a row from a database table by its ID.
@@ -463,8 +399,6 @@ class AMysqlClient(ABC):
             ID of the row to select
         select_col : list[str], optional
             List of columns to select, by default all columns
-        silent : bool, optional
-            If True, suppress logging of the query execution, by default False
 
         Returns
         -------
@@ -473,155 +407,142 @@ class AMysqlClient(ABC):
 
         Raises
         ------
-        AMySqlNoEngineError
+        MySqlNoConnectionError
             If no database connection exists
-        AMySqlWrongQueryError
+        MySqlWrongQueryError
             If query is wrong
-        AMySqlIdNotFoundError
+        MySqlIdNotFoundError
             If id not found in table
         """
-        res_mysql = await self.select(
+        res_mysql = self.select(
             table=table,
             select_col=select_col,
             cond_equal={"id": id},
-            silent=silent,
         )
         if not res_mysql:
-            raise AMySqlIdNotFoundError(
+            raise MySqlIdNotFoundError(
                 f"{id=} not found during select in table {table if isinstance(table, str) else table.__tablename__}"
             )
         return res_mysql[0]
 
     @overload
-    async def id_exists(
+    def id_exists(
         self,
         table: str,
         id: str,
-        silent: bool = False,
     ) -> bool: ...
 
     @overload
-    async def id_exists(
+    def id_exists(
         self,
         table: Type[GenericTableModel],
         id: str,
-        silent: bool = False,
     ) -> bool: ...
 
-    async def id_exists(
+    def id_exists(
         self,
         table: str | Type[GenericTableModel],
         id: str,
-        silent: bool = False,
     ) -> bool:
         try:
-            await self.select_by_id(table=table, id=id, silent=silent)
+            self.select_by_id(table=table, id=id)
             return True
-        except AMySqlIdNotFoundError:
+        except MySqlIdNotFoundError:
             return False
 
 
-class AMysqlClientReader(AMysqlClient):
+class MysqlClientReader(MysqlClient):
     def __init__(self, logger: Logger | None = None) -> None:
         super().__init__(logger)
         self._connect()
 
     def _connect(self) -> None:
-        self.engine = _get_engine_reader()
+        ## TODO : Have a MYSQL_USER_WRITER and MYSQL_USER_READER
+        self.connection = pymysql.connect(
+            host=MYSQL_HOST,
+            port=MYSQL_PORT,
+            user=MYSQL_USER,
+            passwd=MYSQL_PASSWORD,
+            database=MYSQL_DATABASE,
+            charset="utf8mb4",
+            cursorclass=pymysql.cursors.DictCursor,
+        )
 
-    async def check_alive(self) -> None:
+    def check_alive(self) -> None:
         try:
             try:
-                check_alive_res = await self.execute("select 1;")
+                check_alive_res = self.execute("select 1;")
             except Exception:
                 check_alive_res = None
             if check_alive_res is None:
                 self._connect()
-            self.logger.info("AMysqlClientReader is alive.")
+            self.logger.info("MysqlClientReader is alive.")
         except Exception:
             self.logger.critical("ERROR: Lost connection to Database.")
-            raise AMySqlNoEngineError("ERROR: Lost connection to Database.")
+            raise MySqlNoConnectionError("ERROR: Lost connection to Database.")
+
+    def close(self) -> None:
+        if self.connection:
+            self.connection.close()
 
 
-class AMysqlClientWriter(AMysqlClient):
+class MysqlClientWriter(MysqlClient):
     def __init__(self, logger: Logger | None = None) -> None:
         super().__init__(logger)
-        self._connect()
 
     def _connect(self) -> None:
-        self.engine = _get_engine_writer()
+        ## TODO : Have a MYSQL_USER_WRITER and MYSQL_USER_READER
+        self.connection = pymysql.connect(
+            host=MYSQL_HOST,
+            port=MYSQL_PORT,
+            user=MYSQL_USER,
+            passwd=MYSQL_PASSWORD,
+            database=MYSQL_DATABASE,
+            charset="utf8mb4",
+            cursorclass=pymysql.cursors.DictCursor,
+        )
 
-    async def execute(
-        self, query: str, args: dict[str, object] | None = None, silent=False
-    ) -> list[dict[str, object]]:
+    def start_transaction(self) -> None:
+        self._connect()
+
+    def commit(self) -> None:
         """
-        Opens a transaction, execute a SQL query, commit and return the results.
-
-        Parameters
-        ----------
-        query : str
-            SQL query to execute
-        args : tuple | dict | None, optional
-            Parameters to pass to the query, by default None
-        silent : bool, optional
-            If True, suppress logging of the query execution, by default False
-
-        Returns
-        -------
-        list
-            Results of the query execution
-
-        Raises
-        ------
-        AMySqlWrongQueryError
-            If query is wrong
-        AMySqlNoEngineError
-            If no database connection exists
+        Commits the transaction and close the connection.
         """
-        if not self.engine:
-            raise AMySqlNoEngineError("Could not execute query, no engine yet.")
+        if not self.connection:
+            raise MySqlNoConnectionError("Cannot commit if transaction is closed.")
+        self.connection.commit()
+        self.connection.close()
 
-        try:
-            async with self.engine.begin() as conn:
-                result_alchemy = await conn.execute(text(query), args or {})
-                if result_alchemy.returns_rows:
-                    rows = result_alchemy.fetchall()
-                else:
-                    rows = list()
-        except ProgrammingError:
-            self.logger.warning(
-                f"error while executing query, {traceback.format_exc()}"
-            )
-            raise AMySqlWrongQueryError(f"{traceback.format_exc()}")
-
-        if not silent:
-            self._logging(query=query, args=args, result=result_alchemy)
-
-        return [dict(r._mapping) for r in rows]
+    def rollback(self) -> None:
+        """
+        Rollback the transaction and close the connection.
+        """
+        if not self.connection:
+            raise MySqlNoConnectionError("Cannot commit if transaction is closed.")
+        self.connection.rollback()
+        self.connection.close()
 
     @overload
-    async def insert_one(
+    def insert_one(
         self,
         table: str,
         to_insert: dict[str, object],
-        silent: bool = False,
         or_ignore=False,
     ) -> None: ...
 
     @overload
-    async def insert_one(
+    def insert_one(
         self,
         table: Type[GenericTableModel],
         to_insert: GenericTableModel,
-        silent: bool = False,
         or_ignore=False,
     ) -> None: ...
 
-    async def insert_one(
+    def insert_one(
         self,
         table: str | Type[GenericTableModel],
         to_insert: dict[str, object] | GenericTableModel,
-        silent=False,
         or_ignore=False,
     ) -> None:
         """
@@ -633,61 +554,54 @@ class AMysqlClientWriter(AMysqlClient):
             Name of the table to insert into
         to_insert : dict
             Dictionary of column names and their corresponding values
-        silent : bool, optional
-            If True, suppress logging of the query execution, by default False
         or_ignore : bool, optional
             If True, use INSERT IGNORE, default False
 
         Raises
         ------
-        AMySqlNoValueInsertionError
+        MySqlNoValueInsertionError
             If values dictionary is empty
-        AMySqlNoEngineError
+        MySqlNoConnectionError
             If no database connection exists
-        AMySqlWrongQueryError
+        MySqlWrongQueryError
             If query is wrong
         """
         # For typing
         if isinstance(table, str):
             to_insert = cast(dict[str, object], to_insert)
-            return await self.insert(
+            self.insert(
                 table=table,
                 to_insert=[to_insert],
-                silent=silent,
                 or_ignore=or_ignore,
             )
         else:
             to_insert = cast(GenericTableModel, to_insert)
-            return await self.insert(
+            self.insert(
                 table=table,
                 to_insert=[to_insert],
-                silent=silent,
                 or_ignore=or_ignore,
             )
 
     @overload
-    async def insert(
+    def insert(
         self,
         table: str,
         to_insert: list[dict[str, object]],
-        silent: bool = False,
         or_ignore=False,
     ) -> None: ...
 
     @overload
-    async def insert(
+    def insert(
         self,
         table: Type[GenericTableModel],
         to_insert: list[GenericTableModel],
-        silent: bool = False,
         or_ignore=False,
     ) -> None: ...
 
-    async def insert(
+    def insert(
         self,
         table: str | Type[GenericTableModel],
         to_insert: list[dict[str, object]] | list[GenericTableModel],
-        silent=False,
         or_ignore=False,
     ) -> None:
         """
@@ -699,20 +613,18 @@ class AMysqlClientWriter(AMysqlClient):
             Name of the table to insert into
         to_insert : list[dict[str, object]]
             List of dictionary of column names and their corresponding values
-        silent : bool, optional
-            If True, suppress logging of the query execution, by default False
         or_ignore : bool, optional
             If True, use INSERT IGNORE, default False
 
         Raises
         ------
-        AMySqlNoValueInsertionError
+        MySqlNoValueInsertionError
             If values dictionary is empty
-        AMySqlNoEngineError
+        MySqlNoConnectionError
             If no database connection exists
-        AMySqlWrongQueryError
+        MySqlWrongQueryError
             If query is wrong
-        AMySqlColumnInconsistencyError
+        MySqlColumnInconsistencyError
             If multiple rows have individually different columns
         """
         if isinstance(to_insert, str):
@@ -729,18 +641,18 @@ class AMysqlClientWriter(AMysqlClient):
 
         to_insert_dict = [row for row in to_insert_dict if row]
         if not to_insert_dict:
-            raise AMySqlNoValueInsertionError()
+            raise MySqlNoValueInsertionError()
 
         cols = set(to_insert_dict[0].keys())
         for row in to_insert_dict:
             for col in cols:
                 if not col in row:
-                    raise AMySqlColumnInconsistencyError(
+                    raise MySqlColumnInconsistencyError(
                         f"{col=} is not in one of the row to insert: {row=}"
                     )
             for col in row:
                 if not col in cols:
-                    raise AMySqlColumnInconsistencyError(
+                    raise MySqlColumnInconsistencyError(
                         f"{col=} is not in the first row to insert: col_of_first_row={cols}"
                     )
         cols = list(cols)
@@ -755,23 +667,21 @@ class AMysqlClientWriter(AMysqlClient):
         query_parts.append("VALUES")
 
         insert_part = list()
-        args: dict[str, object] = dict()
+        args = list()
         for row in to_insert_dict:
-            values = [row[col] for col in cols]
-            uids_sql = self._update_args_get_uids_sql(args=args, ls_val=values)
-            insert_part.append(f"({",".join(uids_sql)})")
+            insert_part.append(f"({",".join(["%s"] * len(cols))})")
+            args.extend([row[col] for col in cols])
         query_parts.append(",".join(insert_part))
 
         query_parts.append(";")
 
-        await self.execute(
+        self.execute(
             query=" ".join(query_parts),
-            args=args,
-            silent=silent,
+            args=tuple(args),
         )
 
     @overload
-    async def update(
+    def update(
         self,
         table: str,
         update_col_col: dict[str, str] = dict(),
@@ -785,11 +695,10 @@ class AMysqlClientWriter(AMysqlClient):
         cond_greater_or_eq: dict[str, object] = dict(),
         cond_less: dict[str, object] = dict(),
         cond_greater: dict[str, object] = dict(),
-        silent: bool = False,
     ) -> None: ...
 
     @overload
-    async def update(
+    def update(
         self,
         table: Type[GenericTableModel],
         update_col_col: dict[str, str] = dict(),
@@ -803,10 +712,9 @@ class AMysqlClientWriter(AMysqlClient):
         cond_greater_or_eq: dict[str, object] = dict(),
         cond_less: dict[str, object] = dict(),
         cond_greater: dict[str, object] = dict(),
-        silent: bool = False,
     ) -> None: ...
 
-    async def update(
+    def update(
         self,
         table: str | Type[GenericTableModel],
         update_col_col: dict[str, str] = dict(),
@@ -820,7 +728,6 @@ class AMysqlClientWriter(AMysqlClient):
         cond_greater_or_eq: dict[str, object] = dict(),
         cond_less: dict[str, object] = dict(),
         cond_greater: dict[str, object] = dict(),
-        silent: bool = False,
     ) -> None:
         """
         Update rows in a database table based on conditions.
@@ -851,16 +758,14 @@ class AMysqlClientWriter(AMysqlClient):
             Column values that must be less than given value
         cond_g : dict[str, object], optional
             Column values that must be greater than given value
-        silent : bool, optional
-            If True, suppress logging of the query execution, by default False
 
         Raises
         ------
-        AMySqlNoEngineError
+        MySqlNoConnectionError
             If no database connection exists
-        AMySqlDuplicateColumnUpdateError
+        MySqlDuplicateColumnUpdateError
             If a column appears in both update_col_col and update_col_value
-        AMySqlWrongQueryError
+        MySqlWrongQueryError
             If query is wrong
         """
         table_name = table if isinstance(table, str) else table.__tablename__
@@ -875,16 +780,16 @@ class AMysqlClientWriter(AMysqlClient):
             del update_col_value["createdAt"]
 
         if not update_col_col and not update_col_value:
-            raise AMySqlNoUpdateValuesError()
+            raise MySqlNoUpdateValuesError()
 
         for col in update_col_col:
             if col in update_col_value:
-                raise (AMySqlDuplicateColumnUpdateError(column=col))
+                raise (MySqlDuplicateColumnUpdateError(column=col))
         for col in update_col_value:
             if col in update_col_col:
-                raise (AMySqlDuplicateColumnUpdateError(column=col))
+                raise (MySqlDuplicateColumnUpdateError(column=col))
 
-        ids_to_update = await self.select(
+        ids_to_update = self.select(
             table=table_name,
             select_col=["id"],
             cond_equal=cond_equal,
@@ -896,60 +801,55 @@ class AMysqlClientWriter(AMysqlClient):
             cond_non_equal=cond_non_equal,
             cond_not_null=cond_not_null,
             cond_null=cond_null,
-            silent=True,
         )
-        ids_to_update_ls: list[object] = [str(dt["id"]) for dt in ids_to_update]
+        ids_to_update_ls = [str(dt["id"]) for dt in ids_to_update]
 
         if not ids_to_update:
             self.logger.info("nothing to update")
             return
 
+        args = list()
         query_parts = [f"UPDATE {table_name} SET"]
-        args: dict[str, object] = dict()
 
         query_set_part = list()
         for col_prev, col_new in update_col_col.items():
             query_set_part.append(f"{col_prev} = {col_new}")
         for col, value in update_col_value.items():
-            uid = self._get_uuid4()
-            query_set_part.append(f"{col} = :{uid}")
-            args[uid] = value
+            query_set_part.append(f"{col} = %s")
+            args.append(value)
         query_parts.append(", ".join(query_set_part))
 
-        uids_sql = self._update_args_get_uids_sql(args=args, ls_val=ids_to_update_ls)
-        query_parts.append(f"WHERE id IN ({','.join(uids_sql)})")
+        query_parts.append(f"WHERE id IN ({','.join(['%s']*len(ids_to_update_ls))})")
+        args.extend(ids_to_update_ls)
 
         query_parts.append(";")
 
-        await self.execute(query=" ".join(query_parts), args=args, silent=silent)
+        self.execute(query=" ".join(query_parts), args=tuple(args))
 
     @overload
-    async def update_by_id(
+    def update_by_id(
         self,
         table: str,
         id: str,
         update_col_col: dict[str, str] = dict(),
         update_col_value: dict[str, object] = dict(),
-        silent=False,
     ) -> None: ...
 
     @overload
-    async def update_by_id(
+    def update_by_id(
         self,
         table: Type[GenericTableModel],
         id: str,
         update_col_col: dict[str, str] = dict(),
         update_col_value: dict[str, object] = dict(),
-        silent=False,
     ) -> None: ...
 
-    async def update_by_id(
+    def update_by_id(
         self,
         table: str | Type[GenericTableModel],
         id: str,
         update_col_col: dict[str, str] = dict(),
         update_col_value: dict[str, object] = dict(),
-        silent=False,
     ) -> None:
         """
         Update a single row in a table by its ID.
@@ -964,34 +864,31 @@ class AMysqlClientWriter(AMysqlClient):
             Dictionary mapping columns to update with other column values
         update_col_value : dict[str, object], optional
             Dictionary mapping columns to update with specific values
-        silent : bool, optional
-            If True, suppress logging of the query execution, by default False
 
         Raises
         ------
-        AMySqlNoEngineError
+        MySqlNoConnectionError
             If no database connection exists
-        AMySqlDuplicateColumnUpdateError
+        MySqlDuplicateColumnUpdateError
             If a column appears in both update_col_col and update_col_value
-        AMySqlWrongQueryError
+        MySqlWrongQueryError
             If query is wrong
-        AMySqlIdNotFoundError
+        MySqlIdNotFoundError
             If id not found in table
         """
-        if not self.id_exists(table=table, id=id, silent=True):
-            raise AMySqlIdNotFoundError(
+        if not self.id_exists(table=table, id=id):
+            raise MySqlIdNotFoundError(
                 f"{id=} not found during update in table {table if isinstance(table, str) else table.__tablename__}"
             )
-        await self.update(
+        self.update(
             table=table,
             update_col_col=update_col_col,
             update_col_value=update_col_value,
             cond_equal={"id": id},
-            silent=silent,
         )
 
     @overload
-    async def delete(
+    def delete(
         self,
         table: str,
         cond_null: list[str] = list(),
@@ -1003,11 +900,10 @@ class AMysqlClientWriter(AMysqlClient):
         cond_greater_or_eq: dict[str, object] = dict(),
         cond_less: dict[str, object] = dict(),
         cond_greater: dict[str, object] = dict(),
-        silent: bool = False,
-    ) -> list[dict[str, object]]: ...
+    ) -> tuple[dict[str, object], ...]: ...
 
     @overload
-    async def delete(
+    def delete(
         self,
         table: Type[GenericTableModel],
         cond_null: list[str] = list(),
@@ -1019,10 +915,9 @@ class AMysqlClientWriter(AMysqlClient):
         cond_greater_or_eq: dict[str, object] = dict(),
         cond_less: dict[str, object] = dict(),
         cond_greater: dict[str, object] = dict(),
-        silent: bool = False,
-    ) -> list[GenericTableModel]: ...
+    ) -> tuple[GenericTableModel, ...]: ...
 
-    async def delete(
+    def delete(
         self,
         table: str | Type[GenericTableModel],
         cond_null: list[str] = list(),
@@ -1034,8 +929,7 @@ class AMysqlClientWriter(AMysqlClient):
         cond_greater_or_eq: dict[str, object] = dict(),
         cond_less: dict[str, object] = dict(),
         cond_greater: dict[str, object] = dict(),
-        silent: bool = False,
-    ) -> list[dict[str, object]] | list[GenericTableModel]:
+    ) -> tuple[dict[str, object], ...] | tuple[GenericTableModel, ...]:
         """
         Delete rows from a database table based on conditions and returns them.
 
@@ -1061,8 +955,6 @@ class AMysqlClientWriter(AMysqlClient):
             Column values that must be less than given value
         cond_g : dict[str, object], optional
             Column values that must be greater than given value
-        silent : bool, optional
-            If True, suppress logging of the query execution, by default False
 
         Returns
         -------
@@ -1071,12 +963,12 @@ class AMysqlClientWriter(AMysqlClient):
 
         Raises
         ------
-        AMySqlNoEngineError
+        MySqlNoConnectionError
             If no database connection exists
-        AMySqlWrongQueryError
+        MySqlWrongQueryError
             If query is wrong
         """
-        res_mysql = await self.select(
+        res_mysql = self.select(
             table=table,
             cond_equal=cond_equal,
             cond_greater=cond_greater,
@@ -1087,42 +979,37 @@ class AMysqlClientWriter(AMysqlClient):
             cond_non_equal=cond_non_equal,
             cond_not_null=cond_not_null,
             cond_null=cond_null,
-            silent=True,
         )
         if isinstance(table, str):
-            ids_to_delete_ls: list[object] = [str(dt["id"]) for dt in res_mysql]  # type: ignore
+            ids_to_delete_ls: list[str] = [str(dt["id"]) for dt in res_mysql]  # type: ignore
         else:
-            ids_to_delete_ls: list[object] = [r.id for r in res_mysql]  # type: ignore
+            ids_to_delete_ls: list[str] = [r.id for r in res_mysql]  # type: ignore
 
         if not ids_to_delete_ls:
             self.logger.info("nothing to update")
-            return list()
+            return tuple()
 
         if isinstance(table, str):
             query_parts = [f"DELETE FROM {table}"]
         else:
             query_parts = [f"DELETE FROM {table.__tablename__}"]
 
-        args: dict[str, object] = dict()
-        uids_sql = self._update_args_get_uids_sql(args=args, ls_val=ids_to_delete_ls)
-        query_parts.append(f"WHERE id IN ({", ".join(uids_sql)})")
+        query_parts.append(f"WHERE id IN ({", ".join(["%s"]*len(ids_to_delete_ls))})")
         query_parts.append(";")
 
-        await self.execute(query=" ".join(query_parts), args=args, silent=silent)
+        self.execute(query=" ".join(query_parts), args=tuple(ids_to_delete_ls))
         return res_mysql
 
     @overload
-    async def delete_by_id(
-        self, table: str, id: str, silent: bool = False
-    ) -> dict[str, object]: ...
+    def delete_by_id(self, table: str, id: str) -> dict[str, object]: ...
 
     @overload
-    async def delete_by_id(
-        self, table: Type[GenericTableModel], id: str, silent: bool = False
+    def delete_by_id(
+        self, table: Type[GenericTableModel], id: str
     ) -> GenericTableModel: ...
 
-    async def delete_by_id(
-        self, table: str | Type[GenericTableModel], id: str, silent: bool = False
+    def delete_by_id(
+        self, table: str | Type[GenericTableModel], id: str
     ) -> dict[str, object] | GenericTableModel:
         """
         Delete a row from a database table by its ID.
@@ -1133,8 +1020,6 @@ class AMysqlClientWriter(AMysqlClient):
             Table name or actual table class to query from
         id : str
             ID of the row to delete
-        silent : bool, optional
-            If True, suppress logging of the query execution, by default False
 
         Returns
         -------
@@ -1143,17 +1028,17 @@ class AMysqlClientWriter(AMysqlClient):
 
         Raises
         ------
-        AMySqlNoEngineError
+        MySqlNoConnectionError
             If no database connection exists
-        AMySqlWrongQueryError
+        MySqlWrongQueryError
             If query is wrong
-        AMySqlIdNotFoundError
+        MySqlIdNotFoundError
             If id not found in table
         """
-        res_mysql = await self.delete(table=table, cond_equal={"id": id}, silent=silent)
+        res_mysql = self.delete(table=table, cond_equal={"id": id})
 
         if not res_mysql:
-            raise AMySqlIdNotFoundError(
+            raise MySqlIdNotFoundError(
                 f"{id=} not found during delete in table {table if isinstance(table, str) else table.__tablename__}"
             )
         return res_mysql[0]
