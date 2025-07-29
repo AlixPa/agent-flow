@@ -1,12 +1,10 @@
 from abc import ABC
-from collections.abc import Sequence
 from logging import Logger
 from typing import Any, Type
 
 from pydantic import BaseModel
 from pydantic_ai import Agent, agent, messages, models, settings, usage
-from src.clients import AMysqlClientWriter
-from src.config.default_db_settings import DefaultDbSettings
+from src.clients.mysql import AMysqlClientWriter
 from src.config.llms import CostPerInputToken, CostPerOutputToken
 from src.logger import get_logger
 from src.models.database import ExpenseTable
@@ -14,28 +12,26 @@ from src.workflow.graph.state import GraphState
 
 from .config import BaseAgentConfig
 
-logger = get_logger()
+base_logger = get_logger()
 
 
 class BaseAgent(ABC):
     def __init__(
         self,
-        model: str,
-        system_prompt: str,
-        name: str,
+        model: str | None = None,
+        system_prompt: str | None = None,
+        name: str | None = None,
         instrument: bool = True,
-        logger: Logger = logger,
-        silent: bool = False,
+        logger: Logger | None = None,
     ) -> None:
-        self.model = model
-        self.name = name
+        self.model = model or BaseAgentConfig.MODEL
+        self.name = name or BaseAgentConfig.AGENT_BASE_NAME
         self.agent = Agent(
             instrument=instrument,
-            model=model,
-            system_prompt=system_prompt,
+            model=model or BaseAgentConfig.MODEL,
+            system_prompt=system_prompt or BaseAgentConfig.SYSTEM_PROMPT,
         )
-        self.logger = logger
-        self.silent = silent
+        self.logger = logger or base_logger
         self.amysql_writter = AMysqlClientWriter(logger=self.logger)
 
     async def run(
@@ -52,8 +48,7 @@ class BaseAgent(ABC):
         usage: usage.Usage | None = None,
         infer_name: bool = True,
     ) -> agent.AgentRunResult[Any]:
-        if not self.silent:
-            self.logger.debug(f"Called {self.__class__=} with {user_prompt=}")
+        self.logger.debug(f"Called {self.__class__=} with {user_prompt=}. {state=}")
 
         response = await self.agent.run(
             user_prompt=user_prompt,

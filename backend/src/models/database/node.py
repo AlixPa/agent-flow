@@ -21,7 +21,7 @@ class Node(BaseTableModel):
         nullable=False,
         index=True,
     )
-    agentNodeId: Mapped[str] = mapped_column(
+    agentNodeId: Mapped[str | None] = mapped_column(
         VARCHAR(255),
         ForeignKey(AgentNode.id),
         nullable=True,

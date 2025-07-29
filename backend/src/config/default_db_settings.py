@@ -1,4 +1,10 @@
-from src.models.database import ConversationTable, GraphTable, NodeTable, UserTable
+from src.models.database import (
+    ConversationTable,
+    GraphStateTable,
+    GraphTable,
+    NodeTable,
+    UserTable,
+)
 
 
 class DefaultDbSettings:

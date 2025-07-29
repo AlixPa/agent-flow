@@ -2,7 +2,8 @@ import asyncio
 import json
 from logging import Logger
 
-from src.clients import AMysqlClientReader, AMysqlClientWriter
+from src.clients.messenger import Messenger
+from src.clients.mysql import AMysqlClientReader, AMysqlClientWriter
 from src.logger import get_logger
 from src.models.database import (
     ConversationTable,
@@ -14,47 +15,48 @@ from src.models.database import (
 
 from .models import GraphState, MessageHistory
 
-logger = get_logger()
+base_logger = get_logger()
 
 
 class StateManager:
     def __init__(
         self,
-        logger: Logger = logger,
-        silent: bool = False,
+        logger: Logger | None = None,
     ) -> None:
-        self.logger = logger
-        self.mysql_reader = AMysqlClientReader(logger=logger)
-        self.mysql_writer = AMysqlClientWriter(logger=logger)
-        self.silent = silent
+        self.logger = logger or base_logger
+        self.mysql_reader = AMysqlClientReader(logger=self.logger)
+        self.mysql_writer = AMysqlClientWriter(logger=self.logger)
 
-    async def load_state(self, id: str) -> GraphState:
+    async def load_state(
+        self,
+        id: str,
+        skip_next_input: bool = True,
+        stop_execution: bool = False,
+    ) -> GraphState:
+        self.logger.debug(
+            f"Loading state in manager with {id=}, {skip_next_input=}, {stop_execution=}."
+        )
         graph_state_db = await self.mysql_reader.select_by_id(
             table=GraphStateTable,
             id=id,
-            silent=self.silent,
         )
         message_history = MessageHistory(**json.loads(graph_state_db.message_history))
 
         conversation_task = self.mysql_reader.select_by_id(
             table=ConversationTable,
             id=graph_state_db.conversationId,
-            silent=self.silent,
         )
         graph_task = self.mysql_reader.select_by_id(
             table=GraphTable,
             id=graph_state_db.graphId,
-            silent=self.silent,
         )
         entry_node_task = self.mysql_reader.select_by_id(
             table=NodeTable,
             id=graph_state_db.entryNodeId,
-            silent=self.silent,
         )
         user_task = self.mysql_reader.select_by_id(
             table=UserTable,
             id=graph_state_db.userId,
-            silent=self.silent,
         )
         conversation, graph, entry_node, user = await asyncio.gather(
             conversation_task,
@@ -62,15 +64,21 @@ class StateManager:
             entry_node_task,
             user_task,
         )
-        return GraphState(
+        state = GraphState(
             message_history=message_history,
             conversation=conversation,
             entry_node=entry_node,
             graph=graph,
             user=user,
+            messenger=Messenger(),
+            skip_next_input=skip_next_input,
+            stop_execution=stop_execution,
         )
+        self.logger.debug(f"Loaded state in manager, {state=}")
+        return state
 
     async def save_state(self, state: GraphState) -> str:
+        self.logger.debug(f"Saving state in manager {state=}")
         graph_state_db = GraphStateTable(
             message_history=state.message_history.model_dump_json(),
             conversationId=state.conversation.id,
@@ -81,6 +89,6 @@ class StateManager:
         await self.mysql_writer.insert_one(
             table=GraphStateTable,
             to_insert=graph_state_db,
-            silent=self.silent,
         )
+        self.logger.debug(f"Saved state in manager, {graph_state_db.id=}")
         return graph_state_db.id

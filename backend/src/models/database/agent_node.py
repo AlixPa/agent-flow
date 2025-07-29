@@ -30,13 +30,13 @@ class AgentNode(BaseTableModel):
         nullable=False,
         index=True,
     )
-    customModel: Mapped[str] = mapped_column(
+    customModel: Mapped[str | None] = mapped_column(
         VARCHAR(255),
         nullable=True,
         default_factory=lambda: None,
         server_default=None,
     )
-    customPrompt: Mapped[str] = mapped_column(
+    customPrompt: Mapped[str | None] = mapped_column(
         TEXT(),
         nullable=True,
         default_factory=lambda: None,
