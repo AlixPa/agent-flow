@@ -1,12 +1,9 @@
 from logging import Logger
 
 from src.agents.base import BaseAgent
-from src.logger import get_logger
 from src.workflow.graph.state import ConversationMessage, GraphState
 
 from .config import ConversationalAgentConfig
-
-base_logger = get_logger()
 
 
 class ConversationalAgent(BaseAgent):
@@ -21,7 +18,7 @@ class ConversationalAgent(BaseAgent):
             model=model or ConversationalAgentConfig.MODEL,
             system_prompt=system_prompt or ConversationalAgentConfig.SYSTEM_PROMPT,
             name=name or ConversationalAgentConfig.AGENT_BASE_NAME,
-            logger=logger or base_logger,
+            logger=logger,
         )
 
     async def generate_next_message(
