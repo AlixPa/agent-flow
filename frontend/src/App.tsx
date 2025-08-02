@@ -19,6 +19,7 @@ function App() {
       defaultValue="graph"
       value={tab}
       onValueChange={handleTabChange}
+      className="h-screen"
     >
       <TabsList>
         <TabsTrigger value="graph">Flow</TabsTrigger>

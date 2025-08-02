@@ -78,9 +78,9 @@ export const GraphTab = () => {
   };
 
   return (
-    <div className="flex flex-row gap-4 p-4">
+    <div className="flex flex-row gap-4 p-4 h-full" >
       <AgentsSidebar />
-      <div className="w-screen h-screen border-2 border-orange-400 rounded-4xl">
+      <div className="w-full border-2 border-orange-400 rounded-4xl">
         <ReactFlow
           nodes={nodes}
           edges={edges}
