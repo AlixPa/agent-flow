@@ -22,8 +22,8 @@ function App() {
       className="h-screen"
     >
       <TabsList>
-        <TabsTrigger value="graph">Flow</TabsTrigger>
-        <TabsTrigger value="conversation">Chat</TabsTrigger>
+        <TabsTrigger value="graph">Graph</TabsTrigger>
+        <TabsTrigger value="conversation">Conversation</TabsTrigger>
       </TabsList>
       <TabsContent value="graph">
         <ReactFlowProvider>
