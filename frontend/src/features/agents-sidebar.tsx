@@ -12,14 +12,14 @@ export const AgentsSidebar = () => {
   };
   
   return (
-    <aside>
-      <div draggable onDragStart={(e) => onDragStart(e, "input")}>
+    <aside className="w-sm flex flex-col gap-3">
+      <div className="border-2 border-pink-400 rounded-md p-2" draggable onDragStart={(e) => onDragStart(e, "input")}>
         Input Node
       </div>
-      <div draggable onDragStart={(e) => onDragStart(e, "default")}>
+      <div className="border-2 border-green-400 rounded-md p-2" draggable onDragStart={(e) => onDragStart(e, "default")}>
         Default Node
       </div>
-      <div draggable onDragStart={(e) => onDragStart(e, "output")}>
+      <div className="border-2 border-blue-400 rounded-md p-2" draggable onDragStart={(e) => onDragStart(e, "output")}>
         Output Node
       </div>
     </aside>
