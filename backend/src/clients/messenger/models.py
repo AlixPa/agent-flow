@@ -6,6 +6,7 @@ class StreamMessage(BaseModel):
         description="Always at false in the steps, True is only allowed by router.",
         default=False,
     )
+    conversation_id: str = Field()
     text: str | None = Field(default=None)
     state_id: str | None = Field(default=None)
     current_node_id: str | None = Field(default=None)

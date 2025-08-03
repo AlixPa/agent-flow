@@ -13,6 +13,7 @@ def get_step_input(self_node: NodeTable):
             await state.messenger.send(
                 StreamMessage(
                     current_node_id=self_node.id,
+                    conversation_id=state.conversation.id,
                 )
             )
             state.stop_execution = True
@@ -32,6 +33,7 @@ def get_step_output(self_node: NodeTable):
             StreamMessage(
                 text=message_text,
                 current_node_id=self_node.id,
+                conversation_id=state.conversation.id,
             )
         )
         return state
@@ -46,6 +48,7 @@ def get_step_conversational_agent(agent: BaseAgent, self_node: NodeTable):
         await state.messenger.send(
             StreamMessage(
                 current_node_id=self_node.id,
+                conversation_id=state.conversation.id,
             )
         )
         next_message = await agent.generate_next_message(
