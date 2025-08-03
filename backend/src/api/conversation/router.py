@@ -64,7 +64,9 @@ async def stream_conversation(req: ConversationRequest) -> StreamingResponse:
             logger.info(
                 f"No conversation found with the id provided {req.conversation_id}, will create one in the database."
             )
-            conversation = ConversationTable(graphId=req.graph_id, userId=req.user_id)
+            conversation = ConversationTable(
+                id=req.conversation_id, graphId=req.graph_id, userId=req.user_id
+            )
             mysql_writer = AMysqlClientWriter(logger)
             await mysql_writer.insert_one(
                 table=ConversationTable, to_insert=conversation
