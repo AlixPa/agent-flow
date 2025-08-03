@@ -1,4 +1,5 @@
 import asyncio
+import traceback
 
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
@@ -16,6 +17,7 @@ from src.workflow.graph.builder import GraphBuilder
 from src.workflow.graph.state import ConversationMessage, GraphState, StateManager
 
 from .models import ConversationRequest
+from .service import load_row_from_db
 
 router = APIRouter(prefix="/conversation")
 logger = get_logger()
@@ -33,22 +35,35 @@ async def stream_conversation(req: ConversationRequest) -> StreamingResponse:
         req.user_id = DefaultDbSettings.USER.id
 
     if req.state_id:
+        # Continue an existing conversation, meaning a user message must be present
         if not req.user_message:
             raise HTTPWrongAttributesException("state_id found but not user_message.")
-        start_state = await state_manager.load_state(id=req.state_id)
+        try:
+            start_state = await state_manager.load_state(id=req.state_id)
+        except AMySqlIdNotFoundError:
+            logger.error(
+                f"Got requested with {req.state_id=}, but not existing. {traceback.format_exc()}"
+            )
+            raise HTTPWrongAttributesException(
+                "no state founded with the state_id provided."
+            )
         start_state.message_history.messages.append(
             ConversationMessage(speaker=start_state.user.name, text=req.user_message)
         )
     else:
+        # Init the conversation, meaning a user message cannot be present at start
         if req.user_message:
             raise HTTPWrongAttributesException("user_message found but not state_id.")
-        user = await mysql_reader.select_by_id(table=UserTable, id=req.user_id)
-        graph = await mysql_reader.select_by_id(table=GraphTable, id=req.graph_id)
+        user = await load_row_from_db(table=UserTable, id=req.user_id, logger=logger)
+        graph = await load_row_from_db(table=GraphTable, id=req.graph_id, logger=logger)
         try:
             conversation = await mysql_reader.select_by_id(
                 table=ConversationTable, id=req.conversation_id
             )
         except AMySqlIdNotFoundError:
+            logger.info(
+                f"No conversation found with the id provided {req.conversation_id}, will create one in the database."
+            )
             conversation = ConversationTable(graphId=req.graph_id, userId=req.user_id)
             mysql_writer = AMysqlClientWriter(logger)
             await mysql_writer.insert_one(
@@ -76,7 +91,11 @@ async def stream_conversation(req: ConversationRequest) -> StreamingResponse:
             if state.stop_execution:
                 state_db_id = await state_manager.save_state(state=state)
                 await state.messenger.send(
-                    StreamMessage(is_final_message=True, state_id=state_db_id)
+                    StreamMessage(
+                        is_final_message=True,
+                        state_id=state_db_id,
+                        conversation_id=state.conversation.id,
+                    )
                 )
                 break
 
