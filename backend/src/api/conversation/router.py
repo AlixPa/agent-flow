@@ -56,6 +56,10 @@ async def stream_conversation(req: ConversationRequest) -> StreamingResponse:
             raise HTTPWrongAttributesException("user_message found but not state_id.")
         user = await load_row_from_db(table=UserTable, id=req.user_id, logger=logger)
         graph = await load_row_from_db(table=GraphTable, id=req.graph_id, logger=logger)
+        if graph.userId != user.id:
+            raise HTTPWrongAttributesException(
+                f"Could not find the graph of id {req.graph_id} under the user of id {req.user_id}."
+            )
         try:
             conversation = await mysql_reader.select_by_id(
                 table=ConversationTable, id=req.conversation_id
