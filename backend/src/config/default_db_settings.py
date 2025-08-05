@@ -26,6 +26,7 @@ class DefaultDbSettings:
         graphId=GRAPH.id,
         userId=USER.id,
         id=DEFAULT_ID,
+        traceParent=DEFAULT_NAME,
     )
 
     NODE = NodeTable(

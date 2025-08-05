@@ -3,6 +3,8 @@ import traceback
 from logging import Logger
 from typing import AsyncGenerator, Type, TypeVar
 
+import logfire
+from logfire.propagate import get_context
 from src.clients.messenger import Messenger, StreamMessage
 from src.clients.mysql import (
     AMysqlClientReader,
@@ -73,9 +75,13 @@ async def start_state_new_conv(user_id: str, graph_id: str, conversation_id: str
     logger.info(
         f"No conversation found with the id provided {conversation_id}, will create one in the database."
     )
-    conversation = ConversationTable(
-        id=conversation_id, graphId=graph_id, userId=user_id
-    )
+    with logfire.span(conversation_id):
+        conversation = ConversationTable(
+            id=conversation_id,
+            graphId=graph_id,
+            userId=user_id,
+            traceParent=get_context()["traceparent"],
+        )
     mysql_writer = AMysqlClientWriter(logger)
     await mysql_writer.insert_one(table=ConversationTable, to_insert=conversation)
 

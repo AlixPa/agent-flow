@@ -37,9 +37,9 @@ class GraphState(BaseModel):
         default=False,
     )
 
-    conversation: ConversationTable = Field(default=DefaultDbSettings.CONVERSATION)
+    conversation: ConversationTable = Field()
     entry_node: NodeTable = Field(default=DefaultDbSettings.NODE)
-    graph: GraphTable = Field(default=DefaultDbSettings.GRAPH)
+    graph: GraphTable = Field()
     user: UserTable = Field(default=DefaultDbSettings.USER)
 
     model_config = {"arbitrary_types_allowed": True}

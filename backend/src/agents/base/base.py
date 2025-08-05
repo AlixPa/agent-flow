@@ -2,6 +2,7 @@ from abc import ABC
 from logging import Logger
 from typing import Any, Type
 
+from logfire.propagate import attach_context
 from pydantic import BaseModel
 from pydantic_ai import Agent, agent, messages, models, settings, usage
 from src.clients.mysql import AMysqlClientWriter
@@ -27,6 +28,7 @@ class BaseAgent(ABC):
         self.model = model or BaseAgentConfig.MODEL
         self.name = name or BaseAgentConfig.AGENT_BASE_NAME
         self.agent = Agent(
+            name=self.name,
             instrument=instrument,
             model=model or BaseAgentConfig.MODEL,
             system_prompt=system_prompt or BaseAgentConfig.SYSTEM_PROMPT,
@@ -50,17 +52,18 @@ class BaseAgent(ABC):
     ) -> agent.AgentRunResult[Any]:
         self.logger.debug(f"Called {self.__class__=} with {user_prompt=}. {state=}")
 
-        response = await self.agent.run(
-            user_prompt=user_prompt,
-            output_type=output_type,
-            message_history=message_history,
-            model=model,
-            deps=deps,
-            model_settings=model_settings,
-            usage_limits=usage_limits,
-            usage=usage,
-            infer_name=infer_name,
-        )
+        with attach_context({"traceparent": state.conversation.traceParent}):
+            response = await self.agent.run(
+                user_prompt=user_prompt,
+                output_type=output_type,
+                message_history=message_history,
+                model=model,
+                deps=deps,
+                model_settings=model_settings,
+                usage_limits=usage_limits,
+                usage=usage,
+                infer_name=infer_name,
+            )
 
         request_tokens = response.usage().request_tokens or 0
         response_tokens = response.usage().response_tokens or 0
