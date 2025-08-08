@@ -32,7 +32,6 @@ def get_step_output(self_node: NodeTable):
         await state.messenger.send(
             StreamMessage(
                 text=message_text,
-                current_node_id=self_node.id,
                 conversation_id=state.conversation.id,
             )
         )
