@@ -1,6 +1,5 @@
 import asyncio
 import traceback
-from logging import Logger
 from typing import AsyncGenerator, Type, TypeVar
 
 import logfire
@@ -11,12 +10,19 @@ from src.clients.mysql import (
     AMysqlClientWriter,
     AMySqlIdNotFoundError,
 )
+from src.exceptions.http import WrongArgumentException
 from src.logger import get_logger
-from src.models.database import BaseTableModel, ConversationTable, GraphTable, UserTable
+from src.models.database import (
+    BaseTableModel,
+    ConversationTable,
+    GraphStateTable,
+    GraphTable,
+    UserTable,
+)
 from src.workflow.graph.builder import GraphBuilder
 from src.workflow.graph.state import ConversationMessage, GraphState, StateManager
 
-from .models import WrongArgumentException
+from .models import Conversation
 
 logger = get_logger()
 
@@ -24,7 +30,7 @@ GenericTableModel = TypeVar("GenericTableModel", bound=BaseTableModel)
 
 
 async def _load_row_from_db(
-    table: Type[GenericTableModel], id: str, logger: Logger
+    table: Type[GenericTableModel], id: str
 ) -> GenericTableModel:
     mysql_reader = AMysqlClientReader(logger)
     try:
@@ -39,24 +45,46 @@ async def _load_row_from_db(
     return row
 
 
-async def start_state_existing_conv(state_id: str, user_message: str) -> GraphState:
+async def start_state_existing_conv(
+    state_id: str,
+    user_message: str,
+    conversation_id: str,
+    user_id: str,
+    graph_id: str,
+) -> GraphState:
     state_manager = StateManager(logger)
     try:
-        start_state = await state_manager.load_state(id=state_id)
+        start_state = await state_manager.load_state(state_id=state_id)
     except AMySqlIdNotFoundError:
         logger.warning(
             f"Got requested with {state_id=}, but not existing. {traceback.format_exc()}"
         )
         raise WrongArgumentException("no state founded with the state_id provided.")
+
+    if start_state.conversation.id != conversation_id:
+        raise WrongArgumentException(
+            f"The {conversation_id=} does not seem to be corelated with {state_id=}."
+        )
+    if start_state.user.id != user_id:
+        raise WrongArgumentException(
+            f"The {conversation_id=} does not seem to be corelated with {user_id=}."
+        )
+    if start_state.graph.id != graph_id:
+        raise WrongArgumentException(
+            f"The {conversation_id=} does not seem to be corelated with {graph_id=}."
+        )
+
     start_state.message_history.messages.append(
-        ConversationMessage(speaker=start_state.user.name, text=user_message)
+        ConversationMessage(
+            is_user=True, speaker=start_state.user.name, text=user_message
+        )
     )
     return start_state
 
 
 async def start_state_new_conv(user_id: str, graph_id: str, conversation_id: str):
-    user = await _load_row_from_db(table=UserTable, id=user_id, logger=logger)
-    graph = await _load_row_from_db(table=GraphTable, id=graph_id, logger=logger)
+    user = await _load_row_from_db(table=UserTable, id=user_id)
+    graph = await _load_row_from_db(table=GraphTable, id=graph_id)
 
     if graph.userId != user.id:
         raise WrongArgumentException(
@@ -124,3 +152,39 @@ async def get_stream_flow(
 
     asyncio.create_task(iterate_graph())
     return start_state.messenger.stream()
+
+
+async def load_conversation(conversation_id: str) -> Conversation:
+    mysql_reader = AMysqlClientReader(logger=logger)
+
+    if not await mysql_reader.id_exists(table=ConversationTable, id=conversation_id):
+        raise WrongArgumentException(
+            f"no conversation found with the {conversation_id=} provided"
+        )
+
+    res_latest_id = await mysql_reader.select(
+        table=GraphStateTable.__tablename__,
+        select_col=["id"],
+        cond_equal=dict(conversationId=conversation_id),
+        order_by="createdAt",
+        ascending_order=False,
+        limit=1,
+    )
+    if not res_latest_id:
+        raise WrongArgumentException(
+            f"no state found with the {conversation_id=} provided. Something must have been wrong during the creation of the conversation."
+        )
+
+    state_id = str(res_latest_id[0]["id"])
+    state_manager = StateManager(logger=logger)
+    state = await state_manager.load_state(state_id=state_id)
+
+    logger.debug(
+        f"In load_conversation({conversation_id=}), loaded the {state_id=}: {state=}"
+    )
+
+    return Conversation(
+        messages=state.message_history,
+        node_id=state.entry_node.id,
+        state_id=state_id,
+    )

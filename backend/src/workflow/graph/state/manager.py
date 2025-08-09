@@ -29,16 +29,16 @@ class StateManager:
 
     async def load_state(
         self,
-        id: str,
+        state_id: str,
         skip_next_input: bool = True,
         stop_execution: bool = False,
     ) -> GraphState:
         self.logger.debug(
-            f"Loading state in manager with {id=}, {skip_next_input=}, {stop_execution=}."
+            f"Loading state in manager with {state_id=}, {skip_next_input=}, {stop_execution=}."
         )
         graph_state_db = await self.mysql_reader.select_by_id(
             table=GraphStateTable,
-            id=id,
+            id=state_id,
         )
         message_history = MessageHistory(**json.loads(graph_state_db.message_history))
 

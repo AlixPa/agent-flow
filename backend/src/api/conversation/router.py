@@ -1,18 +1,36 @@
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from src.config.default_db_settings import DefaultDbSettings
-from src.exceptions.http import HTTPWrongAttributesException
+from src.exceptions.http import HTTPWrongAttributesException, WrongArgumentException
 from src.logger import get_logger
 
-from .models import ConversationRequest, WrongArgumentException
-from .service import get_stream_flow, start_state_existing_conv, start_state_new_conv
+from .models import ConversationResponse, ConversationStreamRequest
+from .service import (
+    get_stream_flow,
+    load_conversation,
+    start_state_existing_conv,
+    start_state_new_conv,
+)
 
 router = APIRouter(prefix="/conversation")
 logger = get_logger()
 
 
-@router.post("/stream")
-async def stream_conversation(req: ConversationRequest) -> StreamingResponse:
+@router.get("/{conversation_id}", response_model=ConversationResponse)
+async def get_conversation_by_id(conversation_id: str) -> ConversationResponse:
+    try:
+        logger.info(f"On GET /conversation/{{conversation_id}} got {conversation_id=}")
+        conversation = await load_conversation(conversation_id)
+    except WrongArgumentException as e:
+        raise HTTPWrongAttributesException(str(e))
+
+    return ConversationResponse(
+        request_conversation_id=conversation_id, conversation=conversation
+    )
+
+
+@router.post("/stream", response_model=str)
+async def stream_conversation(req: ConversationStreamRequest) -> StreamingResponse:
     try:
         logger.info(f"On POST /conversation/stream_conversation got {req=}")
 
@@ -29,6 +47,9 @@ async def stream_conversation(req: ConversationRequest) -> StreamingResponse:
             start_state = await start_state_existing_conv(
                 state_id=req.state_id,
                 user_message=req.user_message,
+                user_id=req.user_id,
+                conversation_id=req.conversation_id,
+                graph_id=req.graph_id,
             )
         else:
             # Init the conversation, meaning a user message cannot be present at start

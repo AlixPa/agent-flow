@@ -14,6 +14,7 @@ class ConversationMessage(BaseModel):
     def __str__(self) -> str:
         return f"**{self.speaker}**: {self.text}"
 
+    is_user: bool = Field()
     speaker: str = Field(default="")
     text: str = Field(default="")
 
