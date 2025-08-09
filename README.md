@@ -31,47 +31,39 @@ Copy paste `.env-example` to `.env` and fill it with your own environment requir
 
 ---
 
+## Full application
+
+To run the full application use the following command:
+
+```bash
+make app
+```
+
+---
+
+To stop any parts of the application, use the following command:
+
+```bash
+make stop
+```
+
 ## Frontend
 
 To run the frontend, use the following command:
 
 ```bash
-docker compose up -d --build frontend
-docker compose watch --no-up frontend
+make frontend     # runs the frontend alone detached
+make frontend-dev # runs the frontend alone on watch mode
 ```
-
----
-
-To stop the application, use the following command:
-
-```bash
-docker compose down
-```
-
-And stop docker compose watch by Ctrl+C
-
----
 
 ## Backend
-
-### Simple run
 
 To run the backend, use the following command:
 
 ```bash
-docker compose up -d --build backend
+make backend     # runs the backend alone detached
+make backend-dev # runs the backend alone on watch mode
 ```
-
----
-
-To stop the application, use the following command:
-
-```bash
-docker compose stop mysql backend
-docker compose rm -f mysql backend migrator
-```
-
----
 
 The backend will be accessible at:
 
@@ -81,19 +73,6 @@ The backend will be accessible at:
 
 Note that 8080 is default port but you can change `BACKEND_PORT` in the .env file.
 MySQL will be accessible at `MYSQL_PORT_LOCAL` (13306 by default)
-
-### Manual run
-
-Python version: Python 3.13.3
-
-1. Install the `backend/requirements.txt` in a local environment
-2. Run the backend
-
-```bash
-gunicorn main:app --workers 1 --k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8080
-```
-
-3. Access the backend at `127.0.0.1:8080/`
 
 ### To contribute
 

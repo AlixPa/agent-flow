@@ -7,16 +7,16 @@ mysql:
 	$(COMPOSE_UP_DETACH) --build mysql
 
 migrator: mysql
-	$(COMPOSE_LOG) up --build migrator
+	$(COMPOSE_UP_DETACH) --build migrator
 
 backend: migrator
-	$(COMPOSE_LOG) up --build backend
+	$(COMPOSE_UP_DETACH) --build backend
 
 backend-dev: migrator
 	$(COMPOSE_LOG) watch backend
 
 frontend:
-	$(COMPOSE_LOG) up --build frontend
+	$(COMPOSE_UP_DETACH) --build frontend
 
 frontend-dev:
 	$(COMPOSE_LOG) watch frontend
@@ -24,4 +24,6 @@ frontend-dev:
 stop:
 	$(COMPOSE_LOG) down
 
-.PHONY: frontend frontend-dev stop backend backend-dev migrator mysql
+app: frontend backend
+
+.PHONY: frontend frontend-dev stop backend backend-dev migrator mysql app
