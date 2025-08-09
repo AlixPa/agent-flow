@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
+from src.clients.messenger import StreamMessage
 from src.config.default_db_settings import DefaultDbSettings
 from src.exceptions.http import HTTPWrongAttributesException, WrongArgumentException
 from src.logger import get_logger
@@ -16,7 +17,10 @@ router = APIRouter(prefix="/conversation")
 logger = get_logger()
 
 
-@router.get("/{conversation_id}", response_model=ConversationResponse)
+@router.get(
+    "/{conversation_id}",
+    response_model=ConversationResponse,
+)
 async def get_conversation_by_id(conversation_id: str) -> ConversationResponse:
     try:
         logger.info(f"On GET /conversation/{{conversation_id}} got {conversation_id=}")
@@ -29,7 +33,31 @@ async def get_conversation_by_id(conversation_id: str) -> ConversationResponse:
     )
 
 
-@router.post("/stream", response_model=str)
+@router.post(
+    "/stream",
+    response_class=StreamingResponse,
+    responses={
+        200: {
+            "description": "Stream of messages in JSON-lines format",
+            "content": {
+                "application/x-ndjson": {
+                    "schema": {
+                        "type": "string",
+                        "example": StreamMessage(
+                            is_final_message=False,
+                            conversation_id="3a2f690b-8c81-d629-40d7-43d716b3ba21",
+                            text="Hey, this is a llm response.",
+                            state_id=None,
+                            current_node_id=None,
+                        ).model_dump_json()
+                        + "\n",
+                    }
+                }
+            },
+        }
+    },
+    summary="Streaming JSON lines",
+)
 async def stream_conversation(req: ConversationStreamRequest) -> StreamingResponse:
     try:
         logger.info(f"On POST /conversation/stream_conversation got {req=}")
@@ -73,5 +101,5 @@ async def stream_conversation(req: ConversationStreamRequest) -> StreamingRespon
 
     return StreamingResponse(
         stream_flow,
-        media_type="text/event-stream",
+        media_type="application/x-ndjson",
     )
