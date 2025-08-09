@@ -12,7 +12,7 @@ async def load_conversations(graph_id: str) -> list[str]:
         raise WrongArgumentException(f"no graph found with the {graph_id=} provided")
 
     conversations = await mysql_reader.select(
-        table=ConversationTable.__name__,
+        table=ConversationTable.__tablename__,
         select_col=["id"],
         cond_equal=dict(graphId=graph_id),
     )
