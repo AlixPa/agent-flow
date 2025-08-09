@@ -8,8 +8,3 @@ class ConversationRequest(BaseModel):
     user_id: str | None = None
     state_id: str | None = None
     user_message: str | None = None
-
-
-class WrongArgumentException(Exception):
-    def __init__(self, *args: object) -> None:
-        super().__init__(*args)

@@ -1,8 +1,8 @@
 from fastapi import APIRouter
-from src.exceptions.http import HTTPWrongAttributesException
+from src.exceptions.http import HTTPWrongAttributesException, WrongArgumentException
 from src.logger import get_logger
 
-from .models import ConversationIdsResponse, WrongArgumentException
+from .models import ConversationIdsResponse
 from .service import load_conversations
 
 router = APIRouter(prefix="/graph")

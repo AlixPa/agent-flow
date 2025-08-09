@@ -1,8 +1,7 @@
 from src.clients.mysql import AMysqlClientReader
+from src.exceptions.http import WrongArgumentException
 from src.logger import get_logger
 from src.models.database import ConversationTable, GraphTable
-
-from .models import WrongArgumentException
 
 logger = get_logger()
 

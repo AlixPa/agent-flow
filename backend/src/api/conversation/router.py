@@ -1,10 +1,10 @@
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from src.config.default_db_settings import DefaultDbSettings
-from src.exceptions.http import HTTPWrongAttributesException
+from src.exceptions.http import HTTPWrongAttributesException, WrongArgumentException
 from src.logger import get_logger
 
-from .models import ConversationRequest, WrongArgumentException
+from .models import ConversationRequest
 from .service import get_stream_flow, start_state_existing_conv, start_state_new_conv
 
 router = APIRouter(prefix="/conversation")

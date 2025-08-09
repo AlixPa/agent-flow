@@ -10,12 +10,11 @@ from src.clients.mysql import (
     AMysqlClientWriter,
     AMySqlIdNotFoundError,
 )
+from src.exceptions.http import WrongArgumentException
 from src.logger import get_logger
 from src.models.database import BaseTableModel, ConversationTable, GraphTable, UserTable
 from src.workflow.graph.builder import GraphBuilder
 from src.workflow.graph.state import ConversationMessage, GraphState, StateManager
-
-from .models import WrongArgumentException
 
 logger = get_logger()
 
