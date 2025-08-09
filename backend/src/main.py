@@ -1,6 +1,6 @@
 from asgi_correlation_id.middleware import CorrelationIdMiddleware, is_valid_uuid4
 from fastapi import FastAPI
-from src.api import conversation_router, health_router
+from src.api import conversation_router, graph_router, health_router
 from src.clients.mysql import MysqlClientWriter
 from src.config.default_db_settings import DefaultDbSettings
 from src.config.env_var import ENV
@@ -42,8 +42,9 @@ else:
 
 app = FastAPI()
 
-app.include_router(health_router)
 app.include_router(conversation_router)
+app.include_router(graph_router)
+app.include_router(health_router)
 
 app.add_middleware(
     CorrelationIdMiddleware,

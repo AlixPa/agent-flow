@@ -1,6 +1,5 @@
 import asyncio
 import traceback
-from logging import Logger
 from typing import AsyncGenerator, Type, TypeVar
 
 import logfire
@@ -24,7 +23,7 @@ GenericTableModel = TypeVar("GenericTableModel", bound=BaseTableModel)
 
 
 async def _load_row_from_db(
-    table: Type[GenericTableModel], id: str, logger: Logger
+    table: Type[GenericTableModel], id: str
 ) -> GenericTableModel:
     mysql_reader = AMysqlClientReader(logger)
     try:
@@ -55,8 +54,8 @@ async def start_state_existing_conv(state_id: str, user_message: str) -> GraphSt
 
 
 async def start_state_new_conv(user_id: str, graph_id: str, conversation_id: str):
-    user = await _load_row_from_db(table=UserTable, id=user_id, logger=logger)
-    graph = await _load_row_from_db(table=GraphTable, id=graph_id, logger=logger)
+    user = await _load_row_from_db(table=UserTable, id=user_id)
+    graph = await _load_row_from_db(table=GraphTable, id=graph_id)
 
     if graph.userId != user.id:
         raise WrongArgumentException(

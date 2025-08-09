@@ -11,7 +11,7 @@ router = APIRouter(prefix="/conversation")
 logger = get_logger()
 
 
-@router.post("/stream")
+@router.post("/stream", response_model=str)
 async def stream_conversation(req: ConversationRequest) -> StreamingResponse:
     try:
         logger.info(f"On POST /conversation/stream_conversation got {req=}")
