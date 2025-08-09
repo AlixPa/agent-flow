@@ -13,7 +13,7 @@ class ConversationStreamRequest(BaseModel):
 
 class Conversation(BaseModel):
     messages: MessageHistory
-    node_id: str | None
+    node_id: str
     state_id: str
 
 
