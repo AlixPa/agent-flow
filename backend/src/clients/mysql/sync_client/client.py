@@ -234,7 +234,6 @@ class MysqlClient(ABC):
     def select(
         self,
         table: str,
-        select_col: list[str] = list(),
         cond_null: list[str] = list(),
         cond_not_null: list[str] = list(),
         cond_in: dict[str, list] = dict(),
@@ -248,13 +247,13 @@ class MysqlClient(ABC):
         ascending_order: bool = True,
         limit: int = 0,
         offset: int = 0,
+        select_col: list[str] = list(),
     ) -> tuple[dict[str, object], ...]: ...
 
     @overload
     def select(
         self,
         table: Type[GenericTableModel],
-        select_col: list[str] = list(),
         cond_null: list[str] = list(),
         cond_not_null: list[str] = list(),
         cond_in: dict[str, list] = dict(),
@@ -273,7 +272,6 @@ class MysqlClient(ABC):
     def select(
         self,
         table: str | Type[GenericTableModel],
-        select_col: list[str] = list(),
         cond_null: list[str] = list(),
         cond_not_null: list[str] = list(),
         cond_in: dict[str, list] = dict(),
@@ -287,6 +285,7 @@ class MysqlClient(ABC):
         ascending_order: bool = True,
         limit: int = 0,
         offset: int = 0,
+        select_col: list[str] = list(),
     ) -> tuple[dict[str, object], ...] | tuple[GenericTableModel, ...]:
         """
         Execute a SELECT query with various conditions.
@@ -337,9 +336,7 @@ class MysqlClient(ABC):
                 f"SELECT {', '.join(select_col) if select_col else '*'} FROM {table}"
             ]
         else:
-            query_parts = [
-                f"SELECT {', '.join(select_col) if select_col else '*'} FROM {table.__tablename__}"
-            ]
+            query_parts = [f"SELECT * FROM {table.__tablename__}"]
         cond, args = self._generate_cond(
             cond_equal=cond_equal,
             cond_greater=cond_greater,
@@ -379,7 +376,6 @@ class MysqlClient(ABC):
         self,
         table: Type[GenericTableModel],
         id: str,
-        select_col: list[str] = list(),
     ) -> GenericTableModel: ...
 
     def select_by_id(
@@ -398,7 +394,7 @@ class MysqlClient(ABC):
         id : str
             ID of the row to select
         select_col : list[str], optional
-            List of columns to select, by default all columns
+            List of columns to select, by default all columns. Note that this should not be used with a SqlModel expected return.
 
         Returns
         -------
@@ -414,11 +410,17 @@ class MysqlClient(ABC):
         MySqlIdNotFoundError
             If id not found in table
         """
-        res_mysql = self.select(
-            table=table,
-            select_col=select_col,
-            cond_equal={"id": id},
-        )
+        if isinstance(table, str):
+            res_mysql = self.select(
+                table=table,
+                select_col=select_col,
+                cond_equal={"id": id},
+            )
+        else:
+            res_mysql = self.select(
+                table=table,
+                cond_equal={"id": id},
+            )
         if not res_mysql:
             raise MySqlIdNotFoundError(
                 f"{id=} not found during select in table {table if isinstance(table, str) else table.__tablename__}"

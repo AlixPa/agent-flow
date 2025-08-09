@@ -275,7 +275,6 @@ class AMysqlClient(ABC):
     async def select(
         self,
         table: str,
-        select_col: list[str] = list(),
         cond_null: list[str] = list(),
         cond_not_null: list[str] = list(),
         cond_in: dict[str, list] = dict(),
@@ -289,13 +288,13 @@ class AMysqlClient(ABC):
         ascending_order: bool = True,
         limit: int = 0,
         offset: int = 0,
+        select_col: list[str] = list(),
     ) -> list[dict[str, object]]: ...
 
     @overload
     async def select(
         self,
         table: Type[GenericTableModel],
-        select_col: list[str] = list(),
         cond_null: list[str] = list(),
         cond_not_null: list[str] = list(),
         cond_in: dict[str, list] = dict(),
@@ -314,7 +313,6 @@ class AMysqlClient(ABC):
     async def select(
         self,
         table: str | Type[GenericTableModel],
-        select_col: list[str] = list(),
         cond_null: list[str] = list(),
         cond_not_null: list[str] = list(),
         cond_in: dict[str, list] = dict(),
@@ -328,6 +326,7 @@ class AMysqlClient(ABC):
         ascending_order: bool = True,
         limit: int = 0,
         offset: int = 0,
+        select_col: list[str] = list(),
     ) -> list[dict[str, object]] | list[GenericTableModel]:
         """
         Execute a SELECT query with various conditions.
@@ -378,9 +377,7 @@ class AMysqlClient(ABC):
                 f"SELECT {', '.join(select_col) if select_col else '*'} FROM {table}"
             ]
         else:
-            query_parts = [
-                f"SELECT {', '.join(select_col) if select_col else '*'} FROM {table.__tablename__}"
-            ]
+            query_parts = [f"SELECT * FROM {table.__tablename__}"]
         cond_ret = self._generate_cond(
             cond_equal=cond_equal,
             cond_greater=cond_greater,
@@ -425,7 +422,6 @@ class AMysqlClient(ABC):
         self,
         table: Type[GenericTableModel],
         id: str,
-        select_col: list[str] = list(),
     ) -> GenericTableModel: ...
 
     async def select_by_id(
@@ -444,7 +440,7 @@ class AMysqlClient(ABC):
         id : str
             ID of the row to select
         select_col : list[str], optional
-            List of columns to select, by default all columns
+            List of columns to select, by default all columns. Note that this should not be used with a SqlModel expected return.
 
         Returns
         -------
@@ -460,11 +456,17 @@ class AMysqlClient(ABC):
         AMySqlIdNotFoundError
             If id not found in table
         """
-        res_mysql = await self.select(
-            table=table,
-            select_col=select_col,
-            cond_equal={"id": id},
-        )
+        if isinstance(table, str):
+            res_mysql = await self.select(
+                table=table,
+                select_col=select_col,
+                cond_equal={"id": id},
+            )
+        else:
+            res_mysql = await self.select(
+                table=table,
+                cond_equal={"id": id},
+            )
         if not res_mysql:
             raise AMySqlIdNotFoundError(
                 f"{id=} not found during select in table {table if isinstance(table, str) else table.__tablename__}"
