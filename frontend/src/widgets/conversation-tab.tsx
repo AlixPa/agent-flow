@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { streamConversation } from "@/entities/conversation/stream-conversation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 // Make them changable later
 const userId = "user1";
@@ -11,7 +11,8 @@ type Message = { text: string; author: "user" | "agent" };
 
 export const ConversationTab = () => {
   const [input, setInput] = useState("");
-  const conversationId = self.crypto.randomUUID();
+  const conversationIdRef = useRef(self.crypto.randomUUID())
+  const conversationId = conversationIdRef.current;
   const [messages, setMessages] = useState<Message[]>([]);
   const [stateId, setStateId] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
