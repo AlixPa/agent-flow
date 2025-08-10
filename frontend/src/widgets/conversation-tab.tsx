@@ -13,8 +13,11 @@ export const ConversationTab = () => {
   const [input, setInput] = useState("");
   const conversationId = self.crypto.randomUUID();
   const [messages, setMessages] = useState<Message[]>([]);
+  const [stateId, setStateId] = useState("");
+  const [isStreaming, setIsStreaming] = useState(false);
 
   const initializeConversation = () => {
+    if (messages.length > 0) return;
     streamConversation(
       {
         user_id: userId,
@@ -22,8 +25,10 @@ export const ConversationTab = () => {
         conversation_id: conversationId,
       },
       // onMessage
-      () => {
-        // Do nothing
+      (_message, stateId) => {
+        if (stateId) {
+          setStateId(stateId);
+        }
       },
       // onDone
       () => {
@@ -43,23 +48,59 @@ export const ConversationTab = () => {
 
   const handleClickButton = () => {
     setMessages((prev) => [...prev, { text: input, author: "user" }]);
-    // Send input
+    setIsStreaming(true);
+    streamConversation(
+      {
+        user_id: userId,
+        graph_id: graphId,
+        conversation_id: conversationId,
+        state_id: stateId,
+        user_message: input,
+      },
+      // onMessage
+      (message, stateId) => {
+        if (message) {
+          setMessages((prev) => [...prev, { text: message, author: "agent" }]);
+        }
+        if (stateId) {
+          setStateId(stateId);
+        }
+      },
+      // onDone
+      () => {
+        console.log(`Conversation initialized. id: ${conversationId}`);
+        setIsStreaming(false);
+      },
+      // onError
+      (err) => {
+        // Show some feedback to users later
+        console.error("error", err);
+        setIsStreaming(false);
+      }
+    );
+    setInput("");
   };
 
   return (
     <div className="h-full p-8 flex flex-col">
-      {messages.map(m => {
+      {messages.map((m) => {
         return (
-          <div key={m.text} className={`p-2 rounded-lg ${m.author === "user" ? "ml-auto bg-gray-400" : ""}`}>
+          <div
+            key={m.text}
+            className={`p-2 rounded-lg ${
+              m.author === "user" ? "ml-auto bg-gray-400" : ""
+            }`}
+          >
             <p>{m.text}</p>
           </div>
-        )
+        );
       })}
       <div className="flex flex-col gap-2 absolute bottom-6 left-2 right-2">
         <Textarea
-          onClick={initializeConversation}
+          onClick={messages.length > 0 ? undefined : initializeConversation}
           value={input}
           onChange={handleChange}
+          disabled={isStreaming}
         />
         <div className="flex justify-end">
           <Button onClick={handleClickButton} size="icon">

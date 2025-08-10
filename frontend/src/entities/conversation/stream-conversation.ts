@@ -1,6 +1,14 @@
+type Response = {
+  is_final_message: boolean;
+  conversation_id: string;
+  text: string | null;
+  state_id: string | null;
+  current_node_id: string | null;
+};
+
 export async function streamConversation(
   payload: any,
-  onMessage: (msg: any) => void,
+  onMessage: (message: string | null, stateId: string | null) => void,
   onDone: () => void,
   onError: (e: any) => void
 ) {
@@ -20,18 +28,14 @@ export async function streamConversation(
   const reader = res.body.getReader();
   const decoder = new TextDecoder("utf-8");
 
-  function processChunk(chunk: string) {
-    const jsons = chunk
-      .split("data: ")
-      .map((c) => c.trim())
-      .filter((c) => c);
-    for (const json of jsons) {
-      try {
-        console.log("json", json);
-        onMessage(json);
-      } catch (error) {
-        console.error("process chunk error", error);
-      }
+  function processResponse(json: string) {
+    const obj = JSON.parse(json) as Response;
+
+    try {
+      onMessage(obj.text, obj.state_id);
+    } catch (e) {
+      console.error("process response error", e);
+      onError(e);
     }
   }
 
@@ -39,9 +43,8 @@ export async function streamConversation(
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      processChunk(decoder.decode(value, { stream: true }));
+      processResponse(decoder.decode(value, { stream: true }));
     }
-    processChunk("");
     onDone();
   } catch (e) {
     onError(e);
