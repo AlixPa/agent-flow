@@ -21,7 +21,7 @@ class Messenger:
         try:
             while True:
                 msg = await self.queue.get()
-                yield msg.model_dump_json()
+                yield msg.model_dump_json() + "\n"
                 if msg.is_final_message:
                     break
         except asyncio.CancelledError:

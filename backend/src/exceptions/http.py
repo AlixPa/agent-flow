@@ -4,6 +4,11 @@ from src.config.env_var import ENV
 from src.config.runtime import ServiceEnv
 
 
+class WrongArgumentException(Exception):
+    def __init__(self, *args: object) -> None:
+        super().__init__(*args)
+
+
 class HTTPSNotFoundException(HTTPException):
     def __init__(self, detail: str | None = None):
         super().__init__(status_code=404, detail=detail)

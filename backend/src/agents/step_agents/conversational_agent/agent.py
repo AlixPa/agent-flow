@@ -28,4 +28,6 @@ class ConversationalAgent(BaseAgent):
     ) -> ConversationMessage:
         user_prompt = "\n".join([str(m) for m in messages])
         result = await super().run(user_prompt=user_prompt, state=state)
-        return ConversationMessage(speaker=self.name, text=str(result.output))
+        return ConversationMessage(
+            is_user=False, speaker=self.name, text=str(result.output)
+        )
