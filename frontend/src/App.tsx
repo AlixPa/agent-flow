@@ -4,6 +4,7 @@ import { GraphTab } from "./widgets/graph-tab";
 import "@xyflow/react/dist/style.css";
 import { DnDProvider } from "./contexts/dnd-context";
 import { ReactFlowProvider } from "@xyflow/react";
+import { ConversationTab } from "./widgets/conversation-tab";
 
 type Tab = "graph" | "conversation";
 
@@ -32,7 +33,9 @@ function App() {
           </DnDProvider>
         </ReactFlowProvider>
       </TabsContent>
-      <TabsContent value="conversation">Conversation tab</TabsContent>
+      <TabsContent value="conversation">
+        <ConversationTab />
+      </TabsContent>
     </Tabs>
   );
 }
