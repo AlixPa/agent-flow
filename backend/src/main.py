@@ -6,6 +6,7 @@ from src.config.default_db_settings import DefaultDbSettings
 from src.config.env_var import ENV
 from src.config.runtime import ServiceEnv
 from src.models.database import ConversationTable, GraphTable, NodeTable, UserTable
+from fastapi.middleware.cors import CORSMiddleware
 
 ## Init db with default values
 mysql_client = MysqlClientWriter()
@@ -41,6 +42,14 @@ else:
     mysql_client.commit()
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(conversation_router)
 app.include_router(graph_router)
