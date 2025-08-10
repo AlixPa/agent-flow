@@ -11,7 +11,6 @@ type Message = { text: string; author: "user" | "agent" };
 
 export const ConversationTab = () => {
   const [input, setInput] = useState("");
-  // const conversationId = self.crypto.randomUUID();
   const [conversationId, setConversationId] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [stateId, setStateId] = useState("");
