@@ -11,7 +11,8 @@ type Message = { text: string; author: "user" | "agent" };
 
 export const ConversationTab = () => {
   const [input, setInput] = useState("");
-  const conversationId = self.crypto.randomUUID();
+  // const conversationId = self.crypto.randomUUID();
+  const [conversationId, setConversationId] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [stateId, setStateId] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -22,13 +23,14 @@ export const ConversationTab = () => {
       {
         user_id: userId,
         graph_id: graphId,
-        conversation_id: conversationId,
+        conversation_id: self.crypto.randomUUID(),
       },
       // onMessage
-      (_message, stateId) => {
+      (_message, stateId, conversationId) => {
         if (stateId) {
           setStateId(stateId);
         }
+        setConversationId(conversationId);
       },
       // onDone
       () => {
@@ -58,13 +60,14 @@ export const ConversationTab = () => {
         user_message: input,
       },
       // onMessage
-      (message, stateId) => {
+      (message, stateId, conversationId) => {
         if (message) {
           setMessages((prev) => [...prev, { text: message, author: "agent" }]);
         }
         if (stateId) {
           setStateId(stateId);
         }
+        setConversationId(conversationId);
       },
       // onDone
       () => {

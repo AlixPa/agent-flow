@@ -66,6 +66,8 @@ services:
     build:
       context: .
       dockerfile: docker/local/Dockerfile.frontend
+    environment:
+      BACKEND_HOST: http://backend
     ports:
       - "${FRONTEND_PORT}:${FRONTEND_PORT}"
     develop:
