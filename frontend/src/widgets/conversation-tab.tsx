@@ -70,7 +70,7 @@ export const ConversationTab = () => {
       },
       // onDone
       () => {
-        console.log(`Conversation initialized. id: ${conversationId}`);
+        console.log(`Conversation continued. id: ${conversationId}`);
         setIsStreaming(false);
       },
       // onError
