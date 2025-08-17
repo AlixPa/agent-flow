@@ -1,42 +1,16 @@
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useState } from "react";
-import { GraphTab } from "./widgets/graph-tab";
 import "@xyflow/react/dist/style.css";
-import { DnDProvider } from "./contexts/dnd-context";
-import { ReactFlowProvider } from "@xyflow/react";
-import { ConversationTab } from "./widgets/conversation-tab";
-
-type Tab = "graph" | "conversation";
+import { BrowserRouter, Route, Routes } from "react-router";
+import { CreateGraphScreen } from "./pages/create-graph";
+import GraphList from "./pages/graph-list";
 
 function App() {
-  const [tab, setTab] = useState<Tab>("graph");
-
-  const handleTabChange = (v: string) => {
-    setTab(v as Tab);
-  };
-
   return (
-    <Tabs
-      defaultValue="graph"
-      value={tab}
-      onValueChange={handleTabChange}
-      className="h-screen"
-    >
-      <TabsList>
-        <TabsTrigger value="graph">Graph</TabsTrigger>
-        <TabsTrigger value="conversation">Conversation</TabsTrigger>
-      </TabsList>
-      <TabsContent value="graph">
-        <ReactFlowProvider>
-          <DnDProvider>
-            <GraphTab />
-          </DnDProvider>
-        </ReactFlowProvider>
-      </TabsContent>
-      <TabsContent value="conversation">
-        <ConversationTab />
-      </TabsContent>
-    </Tabs>
+     <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<GraphList />} />
+        <Route path="/create" element={<CreateGraphScreen />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
